@@ -1,0 +1,16 @@
+{
+  "name": "cloudflare-workers-manual-deployment-poc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "test": "node --test",
+    "check": "wrangler deploy --dry-run --env dev && wrangler deploy --dry-run --env prod",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.133.0"
+  }
+}
