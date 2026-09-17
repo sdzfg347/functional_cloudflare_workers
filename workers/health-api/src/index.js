@@ -21,7 +21,7 @@ export default {
     }
 
     const response = json({
-      service: "cloudflare-workers-poc",
+      service: "health-api",
       environment: env.ENVIRONMENT,
       commit: env.GIT_SHA ?? "local",
       release: "1.0.0",

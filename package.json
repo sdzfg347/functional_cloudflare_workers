@@ -1,13 +1,13 @@
 {
-  "name": "cloudflare-workers-manual-deployment-poc",
+  "name": "cloudflare-workers-monorepo",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=24 <25" },
+  "workspaces": ["workers/*"],
   "scripts": {
-    "dev": "wrangler dev --env dev",
-    "test": "node --test",
-    "check": "wrangler deploy --dry-run --env dev && wrangler deploy --dry-run --env prod",
+    "test": "npm run test --workspaces",
+    "check": "npm run check --workspaces",
     "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {

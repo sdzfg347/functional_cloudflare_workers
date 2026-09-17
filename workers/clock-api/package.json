@@ -1,0 +1,12 @@
+{
+  "name": "@poc/clock-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test",
+    "check": "wrangler deploy --dry-run --env dev && wrangler deploy --dry-run --env prod"
+  }
+}

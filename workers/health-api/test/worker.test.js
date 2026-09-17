@@ -12,7 +12,7 @@ for (const environment of ["dev", "prod"]) {
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("Cache-Control"), "no-store");
     assert.deepEqual(await response.json(), {
-      service: "cloudflare-workers-poc",
+      service: "health-api",
       environment,
       commit: "a".repeat(40),
       release: "1.0.0",

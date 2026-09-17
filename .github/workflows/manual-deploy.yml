@@ -1,9 +1,17 @@
 name: Manual Deploy Worker
-run-name: Deploy ${{ inputs.environment }} from ${{ github.ref_name }}
+run-name: Deploy ${{ inputs.worker }}/${{ inputs.environment }} from ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
     inputs:
+      worker:
+        description: Worker project
+        type: choice
+        required: true
+        default: health-api
+        options:
+          - health-api
+          - clock-api
       environment:
         description: Target Worker
         type: choice
@@ -17,17 +25,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: worker-deploy-${{ inputs.environment }}
+  group: worker-deploy-${{ inputs.worker }}-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy ${{ inputs.environment }}
-    if: github.ref == 'refs/heads/main'
+    name: Deploy ${{ inputs.worker }}/${{ inputs.environment }}
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (inputs.worker == 'health-api' || inputs.worker == 'clock-api') &&
+      (inputs.environment == 'dev' || inputs.environment == 'prod')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
-      name: ${{ inputs.environment }}
+      name: ${{ inputs.worker }}-${{ inputs.environment }}
       url: ${{ vars.WORKER_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,20 +50,25 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - run: npm ci
-      - run: npm test
+      - name: Test selected Worker
+        env:
+          WORKER: ${{ inputs.worker }}
+        run: npm test --workspace "workers/$WORKER"
       - name: Deploy selected Worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          WORKER: ${{ inputs.worker }}
           WRANGLER_SEND_METRICS: 'false'
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
-          npx --no-install wrangler deploy --env "$DEPLOY_ENVIRONMENT" --var "GIT_SHA:$GITHUB_SHA"
+          npm run deploy --workspace "workers/$WORKER" -- --env "$DEPLOY_ENVIRONMENT" --var "GIT_SHA:$GITHUB_SHA"
       - name: Verify deployed environment and commit
         env:
           WORKER_URL: ${{ vars.WORKER_URL }}
+          EXPECTED_SERVICE: ${{ inputs.worker }}
           EXPECTED_ENVIRONMENT: ${{ inputs.environment }}
           EXPECTED_COMMIT: ${{ github.sha }}
         run: npm run smoke

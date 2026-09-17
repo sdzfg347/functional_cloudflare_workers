@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-workers-clock",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-17",
+  "workers_dev": true,
+  "preview_urls": false,
+  "env": {
+    "dev": {
+      "name": "cloudflare-workers-clock-dev",
+      "vars": { "ENVIRONMENT": "dev", "GIT_SHA": "local" }
+    },
+    "prod": {
+      "name": "cloudflare-workers-clock-prod",
+      "vars": { "ENVIRONMENT": "prod", "GIT_SHA": "local" }
+    }
+  }
+}
