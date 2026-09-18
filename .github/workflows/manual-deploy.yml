@@ -32,11 +32,11 @@ jobs:
   deploy:
     name: Deploy ${{ inputs.worker }}/${{ inputs.environment }}
     if: >-
-      github.ref == 'refs/heads/main' &&
       (inputs.worker == 'health-api' || inputs.worker == 'clock-api') &&
       (inputs.environment == 'dev' || inputs.environment == 'prod') &&
-      (github.actor == 'sdzfg347' ||
-       (github.actor == 'theideasaler' && inputs.environment == 'dev'))
+      (github.actor == 'sdzfg347' || github.actor == 'theideasaler') &&
+      (inputs.environment == 'dev' || github.ref == 'refs/heads/main') &&
+      (github.actor == 'sdzfg347' || inputs.environment == 'dev')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

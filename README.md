@@ -1,6 +1,6 @@
 # Cloudflare Workers monorepo
 
-Two independent Worker projects, each deployable to dev or prod from `main`.
+Two independent Worker projects, each deployable to dev from any selected branch and to prod from `main`.
 
 ```text
 workers/
@@ -36,14 +36,14 @@ All four are test Workers. Each response contains its project, environment and d
 ## Deploy
 
 1. Open **Actions → Manual Deploy Worker → Run workflow**.
-2. Select the **main** branch.
+2. Select the branch to test.
 3. Select Worker **health-api** or **clock-api**.
 4. Select **dev** or **prod** and run the workflow.
 5. Check the run's verification step and the selected Worker's `/health` URL.
 
-Only the selected Worker/environment is deployed. Pushes and pull requests run validation only. Runs from other branches skip the deployment job. `theideasaler` is allowed only for dev deployments; `sdzfg347` is allowed for both dev and prod. Each GitHub environment is also restricted to the `main` branch, and `main` requires reviewed pull requests so a collaborator cannot replace this access rule by pushing a workflow edit directly.
+Only the selected Worker/environment is deployed. Pushes and pull requests run validation only. `theideasaler` may deploy dev from any branch; prod requires `main` and owner approval. `sdzfg347` may deploy dev from any branch and prod from `main`. Main requires reviewed pull requests so a collaborator cannot replace this access rule by pushing a workflow edit directly.
 
-The commit captured when the run starts is checked out explicitly and reported by the Worker. A new manual run deploys the current `main` commit; this is not an immutable-artifact promotion system.
+The commit captured when the run starts is checked out explicitly and reported by the Worker. A dev run deploys the selected branch's commit; a prod run deploys a selected `main` commit. This is not an immutable-artifact promotion system.
 
 ## Configuration
 
