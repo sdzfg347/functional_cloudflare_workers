@@ -34,7 +34,9 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (inputs.worker == 'health-api' || inputs.worker == 'clock-api') &&
-      (inputs.environment == 'dev' || inputs.environment == 'prod')
+      (inputs.environment == 'dev' || inputs.environment == 'prod') &&
+      (github.actor == 'sdzfg347' ||
+       (github.actor == 'theideasaler' && inputs.environment == 'dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

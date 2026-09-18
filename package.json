@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24 <25" },
-  "workspaces": ["workers/*"],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "workers/*"
+  ],
   "scripts": {
     "test": "npm run test --workspaces",
     "check": "npm run check --workspaces",
     "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
-    "wrangler": "4.133.0"
+    "wrangler": "^4.134.0"
   }
 }

@@ -41,7 +41,7 @@ All four are test Workers. Each response contains its project, environment and d
 4. Select **dev** or **prod** and run the workflow.
 5. Check the run's verification step and the selected Worker's `/health` URL.
 
-Only the selected Worker/environment is deployed. Pushes and pull requests run validation only. Runs from other branches skip the deployment job. Each GitHub environment is also restricted to the `main` branch.
+Only the selected Worker/environment is deployed. Pushes and pull requests run validation only. Runs from other branches skip the deployment job. `theideasaler` is allowed only for dev deployments; `sdzfg347` is allowed for both dev and prod. Each GitHub environment is also restricted to the `main` branch, and `main` requires reviewed pull requests so a collaborator cannot replace this access rule by pushing a workflow edit directly.
 
 The commit captured when the run starts is checked out explicitly and reported by the Worker. A new manual run deploys the current `main` commit; this is not an immutable-artifact promotion system.
 
