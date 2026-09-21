@@ -9,6 +9,7 @@ The target model is:
 - Production deployments require approval from a release team.
 - The same workflow supports multiple Worker projects.
 - Each Worker has separate dev and prod credentials.
+- New Worker folders are discovered and validated at runtime; the workflow does not maintain a Worker-name allowlist.
 - No Cloudflare token is committed to Git or printed in logs.
 
 The proof-of-concept repository uses these files and folders:
@@ -283,14 +284,33 @@ Use one root `package-lock.json` with npm workspaces. Pin Wrangler at the root a
 
 For an organization-owned repository, repository and environment permissions should provide the team boundary. The workflow does not need a hardcoded user allowlist.
 
-The job condition should validate the selected project and environment and require `main` only for prod:
+Use a string input for the Worker folder. GitHub `workflow_dispatch` choice options are static YAML values and cannot be generated from repository folders. Validate the folder after checkout, then use the validated output to select the GitHub environment. The job condition should validate the environment and require `main` only for prod:
 
 ```yaml
 if: >-
-  (inputs.worker == 'health-api' || inputs.worker == 'clock-api') &&
   (inputs.environment == 'dev' || inputs.environment == 'prod') &&
   (inputs.environment == 'dev' || github.ref == 'refs/heads/main')
 ```
+
+The validation job should reject path traversal and non-standard folder names before the deployment job receives an environment secret:
+
+```yaml
+- name: Validate Worker folder
+  id: validate-worker
+  env:
+    WORKER: ${{ inputs.worker }}
+  shell: bash
+  run: |
+    set -euo pipefail
+    if ! printf '%s' "$WORKER" | grep -Eq '^[a-z0-9][a-z0-9-]*$'; then
+      exit 1
+    fi
+    test -f "workers/$WORKER/package.json"
+    test -f "workers/$WORKER/wrangler.jsonc"
+    echo "worker=$WORKER" >> "$GITHUB_OUTPUT"
+```
+
+The deployment job should use `needs.validate.outputs.worker` in its `environment.name`, workspace commands, and smoke-test expectations. This validates the input before the matching environment secret is made available.
 
 The job should reference the selected environment:
 
@@ -351,7 +371,7 @@ For every future Worker:
 
 1. Add `workers/<worker-name>` with source, tests, `package.json`, and `wrangler.jsonc`.
 2. Add dev and prod Worker names to its Wrangler configuration.
-3. Add the Worker name to the workflow’s dispatch choices and validation allowlist.
+3. Use a lowercase kebab-case folder name. The workflow discovers and validates the folder automatically; no workflow allowlist change is required.
 4. Create the two Cloudflare Worker targets.
 5. Create separate dev and prod deployment tokens.
 6. Create GitHub environments `<worker-name>-dev` and `<worker-name>-prod`.

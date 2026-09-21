@@ -5,13 +5,10 @@ on:
   workflow_dispatch:
     inputs:
       worker:
-        description: Worker project
-        type: choice
+        description: Worker folder under workers/
+        type: string
         required: true
         default: health-api
-        options:
-          - health-api
-          - clock-api
       environment:
         description: Target Worker
         type: choice
@@ -29,18 +26,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy ${{ inputs.worker }}/${{ inputs.environment }}
+  validate:
+    name: Validate ${{ inputs.worker }}/${{ inputs.environment }}
     if: >-
-      (inputs.worker == 'health-api' || inputs.worker == 'clock-api') &&
       (inputs.environment == 'dev' || inputs.environment == 'prod') &&
       (github.actor == 'sdzfg347' || github.actor == 'theideasaler') &&
       (inputs.environment == 'dev' || github.ref == 'refs/heads/main') &&
       (github.actor == 'sdzfg347' || inputs.environment == 'dev')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      worker: ${{ steps.validate-worker.outputs.worker }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate Worker folder
+        id: validate-worker
+        env:
+          WORKER: ${{ inputs.worker }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$WORKER" | grep -Eq '^[a-z0-9][a-z0-9-]*$'; then
+            echo "Worker must be a lowercase folder name using letters, numbers and hyphens: $WORKER"
+            exit 1
+          fi
+          test -d "workers/$WORKER"
+          test -f "workers/$WORKER/package.json"
+          test -f "workers/$WORKER/wrangler.jsonc"
+          echo "worker=$WORKER" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: validate
+    if: needs.validate.result == 'success'
+    name: Deploy ${{ needs.validate.outputs.worker }}/${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
-      name: ${{ inputs.worker }}-${{ inputs.environment }}
+      name: ${{ needs.validate.outputs.worker }}-${{ inputs.environment }}
       url: ${{ vars.WORKER_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,14 +79,14 @@ jobs:
       - run: npm ci
       - name: Test selected Worker
         env:
-          WORKER: ${{ inputs.worker }}
+          WORKER: ${{ needs.validate.outputs.worker }}
         run: npm test --workspace "workers/$WORKER"
       - name: Deploy selected Worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
-          WORKER: ${{ inputs.worker }}
+          WORKER: ${{ needs.validate.outputs.worker }}
           WRANGLER_SEND_METRICS: 'false'
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
@@ -70,7 +95,7 @@ jobs:
       - name: Verify deployed environment and commit
         env:
           WORKER_URL: ${{ vars.WORKER_URL }}
-          EXPECTED_SERVICE: ${{ inputs.worker }}
+          EXPECTED_SERVICE: ${{ needs.validate.outputs.worker }}
           EXPECTED_ENVIRONMENT: ${{ inputs.environment }}
           EXPECTED_COMMIT: ${{ github.sha }}
         run: npm run smoke
