@@ -9,7 +9,7 @@ The target model is:
 - Production deployments require approval from a release team.
 - The same workflow supports multiple Worker projects.
 - Each Worker has separate dev and prod credentials.
-- New Worker folders are discovered and validated at runtime; the workflow does not maintain a Worker-name allowlist.
+- The manual Worker selector uses a predefined dropdown and validates the selected folder before deployment.
 - No Cloudflare token is committed to Git or printed in logs.
 
 The proof-of-concept repository uses these files and folders:
@@ -284,7 +284,7 @@ Use one root `package-lock.json` with npm workspaces. Pin Wrangler at the root a
 
 For an organization-owned repository, repository and environment permissions should provide the team boundary. The workflow does not need a hardcoded user allowlist.
 
-Use a string input for the Worker folder. GitHub `workflow_dispatch` choice options are static YAML values and cannot be generated from repository folders. Validate the folder after checkout, then use the validated output to select the GitHub environment. The job condition should validate the environment and require `main` only for prod:
+Use a `choice` input for the Worker folder. GitHub `workflow_dispatch` choice options are static YAML values, so add each new Worker to the options list when onboarding it. Validate the selected folder after checkout, then use the validated output to select the GitHub environment. The job condition should validate the environment and require `main` only for prod:
 
 ```yaml
 if: >-
@@ -371,7 +371,7 @@ For every future Worker:
 
 1. Add `workers/<worker-name>` with source, tests, `package.json`, and `wrangler.jsonc`.
 2. Add dev and prod Worker names to its Wrangler configuration.
-3. Use a lowercase kebab-case folder name. The workflow discovers and validates the folder automatically; no workflow allowlist change is required.
+3. Use a lowercase kebab-case folder name and add it to the workflow’s `worker` choice options.
 4. Create the two Cloudflare Worker targets.
 5. Create separate dev and prod deployment tokens.
 6. Create GitHub environments `<worker-name>-dev` and `<worker-name>-prod`.

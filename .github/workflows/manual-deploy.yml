@@ -5,12 +5,15 @@ on:
   workflow_dispatch:
     inputs:
       worker:
-        description: Worker folder under workers/
-        type: string
+        description: Worker project
+        type: choice
         required: true
         default: health-api
+        options:
+          - health-api
+          - clock-api
       environment:
-        description: Target Worker
+        description: Target environment
         type: choice
         required: true
         default: dev

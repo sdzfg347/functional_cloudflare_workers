@@ -37,7 +37,7 @@ All four are test Workers. Each response contains its project, environment and d
 
 1. Open **Actions → Manual Deploy Worker → Run workflow**.
 2. Select the branch to test.
-3. Enter the Worker folder name, for example `health-api` or `clock-api`.
+3. Select the Worker project: `health-api` or `clock-api`.
 4. Select **dev** or **prod** and run the workflow.
 5. Check the run's verification step and the selected Worker's `/health` URL.
 
@@ -71,4 +71,4 @@ The deployed endpoints are public and contain no business logic, credentials or 
 
 ## Add a Worker
 
-Add `workers/<name>` with its own package, source, tests and Wrangler environments; update the lock file; and configure its two GitHub environments and corresponding Cloudflare credentials before deploying. The manual workflow validates the folder automatically, so no workflow allowlist update is required.
+Add `workers/<name>` with its own package, source, tests and Wrangler environments; update the lock file; add the folder to the `worker` input options in `.github/workflows/manual-deploy.yml`; and configure its two GitHub environments and corresponding Cloudflare credentials before deploying. The workflow still validates the selected folder before accessing its environment secret.
