@@ -1,4 +1,4 @@
-name: Manual Deploy Worker
+name: Deploy Worker
 run-name: Deploy ${{ inputs.worker }}/${{ inputs.environment }} from ${{ github.ref_name }}
 
 on:
@@ -8,9 +8,8 @@ on:
         description: Worker project
         type: choice
         required: true
-        default: health-api
+        default: clock-api
         options:
-          - health-api
           - clock-api
       environment:
         description: Target environment
@@ -80,10 +79,10 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - run: npm ci
-      - name: Test selected Worker
+      - name: Validate selected Worker build
         env:
           WORKER: ${{ needs.validate.outputs.worker }}
-        run: npm test --workspace "workers/$WORKER"
+        run: npm run check --workspace "workers/$WORKER"
       - name: Deploy selected Worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -95,10 +94,3 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
           npm run deploy --workspace "workers/$WORKER" -- --env "$DEPLOY_ENVIRONMENT" --var "GIT_SHA:$GITHUB_SHA"
-      - name: Verify deployed environment and commit
-        env:
-          WORKER_URL: ${{ vars.WORKER_URL }}
-          EXPECTED_SERVICE: ${{ needs.validate.outputs.worker }}
-          EXPECTED_ENVIRONMENT: ${{ inputs.environment }}
-          EXPECTED_COMMIT: ${{ github.sha }}
-        run: npm run smoke

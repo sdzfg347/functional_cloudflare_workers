@@ -43,7 +43,7 @@ The prod response identifies `clock.prod.js`. Both sources currently offer the s
 - `GIT_SHA`: defaults to `local`; GitHub deployment overrides it with the run's commit.
 - `CLOUDFLARE_ACCOUNT_ID`: deployment account, supplied by GitHub variables.
 - `CLOUDFLARE_API_TOKEN`: deployment credential, supplied by the selected GitHub environment secret; never returned by the Worker.
-- `WORKER_URL`: target URL for the workflow's smoke test.
+- `WORKER_URL`: public target URL displayed in GitHub's deployment record; it does not configure the Cloudflare destination.
 
 GitHub environments are `clock-api-dev` and `clock-api-prod`. Dev supports branch testing. Prod requires `main`, the allowed owner actor and production approval. The existing proof-of-concept credential is account-scoped; distinct GitHub environments alone do not narrow that Cloudflare permission.
 
@@ -53,7 +53,6 @@ Run from the repository root with Node.js 24:
 
 ```sh
 npm ci
-npm test --workspace workers/clock-api
 npm run check --workspace workers/clock-api
 npm run dev --workspace workers/clock-api
 ```
@@ -65,15 +64,15 @@ cd workers/clock-api
 npx --no-install wrangler dev --env prod
 ```
 
-Tests cover both entrypoints, incorrect environment bindings, health and time responses, methods, paths and HEAD requests. `check` dry-runs dev and prod packaging without publishing.
+`check` dry-runs dev and prod packaging without publishing. This minimal POC does not include unit tests or automated endpoint verification; inspect `/health` and `/time` manually after deployment.
 
 ## Deployment and verification
 
-1. Open GitHub **Actions → Manual Deploy Worker → Run workflow**.
+1. Open GitHub **Actions → Deploy Worker → Run workflow**.
 2. Select the desired branch for dev; choose `main` for prod.
 3. Select Worker `clock-api`, then `dev` or `prod`.
 4. Start the run and approve the prod environment when prompted.
-5. Confirm tests, deployment and smoke verification pass.
+5. Confirm build validation and deployment pass.
 6. Check `/health`: `entrypoint` must be `clock.dev.js` for dev or `clock.prod.js` for prod, and `commit` must equal the run's SHA.
 
 Public test endpoints:
@@ -88,14 +87,13 @@ Use `/time` to verify the clock response as well. Deploying one target should le
 - HTTP 503: check that the selected source matches the `ENVIRONMENT` binding.
 - Missing entrypoint during deployment: supply an explicit Wrangler environment.
 - Authentication failure: check the selected GitHub environment's token, expiry, scope and account ID.
-- Smoke mismatch: check `WORKER_URL`, the selected source and the deployed commit.
+- Wrong response identity: check the selected source, destination URL and deployed commit.
 - Rollback: an authorized Cloudflare operator can open the target Worker's **Deployments** and restore a known-good version. Verify its identity afterward. A dashboard rollback is a separate operation from the GitHub approval workflow.
 
 ## References and ownership
 
 - Owner: `sdzfg347` (proof-of-concept repository owner).
 - ClickUp: no task link has been supplied for this test Worker. Add the actual task ID/URL if the demo is associated with a task.
-- [Deployment workflow](../../.github/workflows/manual-deploy.yml).
-- [CI workflow](../../.github/workflows/ci.yml).
-- [Tests](./test/worker.test.js).
+- [Deployment workflow](../../.github/workflows/deploy.yml).
+- [CI workflow](../../.github/workflows/build.yml).
 - [Cloudflare Wrangler environment configuration](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys).

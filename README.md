@@ -1,47 +1,37 @@
 # Cloudflare Workers monorepo
 
-Two independent Worker projects, each deployable to dev from any selected branch and to prod from `main`.
+A minimal POC demonstrating manual GitHub Actions deployments of a clock Worker, with separate dev and prod source files. Dev can deploy from any selected branch; prod deploys from `main` with approval.
 
 ```text
 workers/
-  health-api/
-    src/index.js
-    test/worker.test.js
-    package.json
-    wrangler.jsonc
   clock-api/
     README.md
     clock.dev.js
     clock.prod.js
-    test/worker.test.js
     package.json
     wrangler.jsonc
-scripts/smoke.mjs
 .github/workflows/
-  ci.yml
-  manual-deploy.yml
+  build.yml
+  deploy.yml
 package.json
 package-lock.json
 ```
 
-The root uses npm workspaces and one lock file. Each Worker owns its source, tests, Wrangler configuration and deployment script. A project may use shared code for both environments, as `health-api` does, or separate source files, as `clock-api` does.
+The root uses npm workspaces and one lock file so additional Worker projects can be added later. The clock project owns its two source files, Wrangler configuration and deployment script. CI and deployment perform packaging checks; endpoint verification is manual.
 
-- `health-api` reports deployment identity at `/` and `/health`.
-  - Dev: https://cloudflare-workers-poc-dev.n-liu.workers.dev/health
-  - Prod: https://cloudflare-workers-poc-prod.n-liu.workers.dev/health
 - [clock-api](workers/clock-api/README.md) reports deployment identity at `/health` and current UTC time at `/time`.
   - Dev: https://cloudflare-workers-clock-dev.n-liu.workers.dev/time
   - Prod: https://cloudflare-workers-clock-prod.n-liu.workers.dev/time
 
-All four are test Workers. Each response contains its project, environment and deployed Git commit.
+Both destinations are test Workers. Each response contains its project, environment, source entrypoint and deployed Git commit.
 
 ## Deploy
 
-1. Open **Actions → Manual Deploy Worker → Run workflow**.
+1. Open **Actions → Deploy Worker → Run workflow**.
 2. Select the branch to test.
-3. Select the Worker project: `health-api` or `clock-api`.
+3. Select the Worker project: `clock-api`.
 4. Select **dev** or **prod** and run the workflow.
-5. Check the run's verification step and the selected Worker's `/health` URL.
+5. Confirm the deployment step succeeds, then open the selected Worker's `/health` or `/time` URL to verify it manually.
 
 Only the selected Worker/environment is deployed. Pushes and pull requests run validation only. `theideasaler` may deploy dev from any branch; prod requires `main` and owner approval. `sdzfg347` may deploy dev from any branch and prod from `main`. Main requires reviewed pull requests so a collaborator cannot replace this access rule by pushing a workflow edit directly.
 
@@ -49,7 +39,7 @@ The commit captured when the run starts is checked out explicitly and reported b
 
 ## Configuration
 
-GitHub environments `health-api-dev`, `health-api-prod`, `clock-api-dev` and `clock-api-prod` each contain a `CLOUDFLARE_API_TOKEN` secret for the corresponding Worker and a `WORKER_URL` variable. The shared account ID is stored as the repository variable `CLOUDFLARE_ACCOUNT_ID`.
+GitHub environments `clock-api-dev` and `clock-api-prod` contain a `CLOUDFLARE_API_TOKEN` secret and a `WORKER_URL` variable. `WORKER_URL` is displayed as the deployment link in GitHub; it does not select the Cloudflare target. The shared account ID is stored as the repository variable `CLOUDFLARE_ACCOUNT_ID`.
 
 Worker targets and runtime variables are defined in each project's `wrangler.jsonc`. The deployment step overrides `GIT_SHA` with the workflow's commit SHA. Only explicit non-sensitive fields are returned. Deployment concurrency is scoped to the Worker/environment pair.
 
@@ -97,9 +87,9 @@ Both files currently provide the same API contract, with deliberately distinct i
 
 The dev response reports `clock.dev.js`. Each entrypoint returns HTTP 503 if its `ENVIRONMENT` binding belongs to the other environment or is missing. This catches mismatched runtime configuration. Cloudflare token scope and GitHub environment rules provide the access-control boundary; a filename is not a permission restriction.
 
-Dev and prod implementations can evolve independently. Test both files: a successful dev deployment does not verify the prod source. Old/new versions belong in Git commits or branches while filenames remain stable.
+Dev and prod implementations can evolve independently. A successful dev deployment does not verify the prod source. Old/new versions belong in Git commits or branches while filenames remain stable.
 
-The CI workflow already runs both entrypoints' tests and both environment builds through the project's scripts. No changes to `ci.yml` or `manual-deploy.yml` are needed for this source split. `WORKER_URL` is used by the smoke test; the deployment destination comes from the selected Wrangler configuration and account.
+`build.yml` runs `npm ci` and `npm run check`. The manual deployment workflow validates the selected folder, packages both clock environments, and deploys the selected one. This minimal POC has no unit-test folder or automated smoke-check script; use the public endpoints to verify the environment, entrypoint and commit after deployment.
 
 ## Local validation
 
@@ -107,15 +97,13 @@ Use Node.js 24:
 
 ```sh
 npm ci
-npm test
 npm run check
-npm run dev --workspace workers/health-api
 npm run dev --workspace workers/clock-api
 ```
 
-Run development servers separately or choose distinct ports. `npm run check` bundles all four configurations using Wrangler's dry-run mode without deploying.
+`npm run check` bundles the clock dev and prod configurations using Wrangler's dry-run mode without deploying.
 
-For one project, use `npm test --workspace workers/clock-api` or `npm run check --workspace workers/clock-api`.
+To check only the clock workspace, use `npm run check --workspace workers/clock-api`.
 
 To run the prod clock source locally:
 
@@ -130,4 +118,4 @@ The deployed endpoints are public and contain no business logic, credentials or 
 
 ## Add a Worker
 
-Add `workers/<name>` with its own package, source, tests and Wrangler environments; update the lock file; add the folder to the `worker` input options in `.github/workflows/manual-deploy.yml`; and configure its two GitHub environments and corresponding Cloudflare credentials before deploying. The workflow still validates the selected folder before accessing its environment secret.
+Add `workers/<name>` with its own README, package, source and Wrangler environments; update the lock file; add the folder to the `worker` input options in `.github/workflows/deploy.yml`; and configure its two GitHub environments and corresponding Cloudflare credentials before deploying. The workflow validates the selected folder before accessing its environment secret.

@@ -16,18 +16,14 @@ The proof-of-concept repository uses these files and folders:
 
 ```text
 workers/
-  health-api/
-    src/
-    test/
-    package.json
-    wrangler.jsonc
   clock-api/
-    src/
-    test/
+    README.md
+    clock.dev.js
+    clock.prod.js
     package.json
     wrangler.jsonc
-.github/workflows/ci.yml
-.github/workflows/manual-deploy.yml
+.github/workflows/build.yml
+.github/workflows/deploy.yml
 package.json
 package-lock.json
 ```
@@ -58,7 +54,7 @@ Do not give every developer repository Admin or Maintain access. Repository Writ
 
 Configure `main` with:
 
-- Required `validate` status check from `ci.yml`.
+- Required `validate` status check from `build.yml`.
 - At least one approving pull-request review.
 - Dismiss stale approvals after new commits.
 - Required conversation resolution.
@@ -103,8 +99,6 @@ Create two environments for every Worker:
 For example:
 
 ```text
-health-api-dev
-health-api-prod
 clock-api-dev
 clock-api-prod
 ```
@@ -115,7 +109,7 @@ Configure the dev environment with:
 
 - No deployment branch restriction, so feature branches can be tested.
 - A `CLOUDFLARE_API_TOKEN` environment secret.
-- A `WORKER_URL` environment variable.
+- A `WORKER_URL` environment variable for the deployment link.
 
 The workflow itself still allows dev only for members of the development group. Repository Write permission is the normal control for who can dispatch the workflow.
 
@@ -127,7 +121,7 @@ Configure the prod environment with:
 - Required reviewer: the `leads` team.
 - `Prevent self-review` enabled if the person who starts a deployment must not approve their own deployment.
 - A separate `CLOUDFLARE_API_TOKEN` environment secret.
-- A `WORKER_URL` environment variable.
+- A `WORKER_URL` environment variable for the deployment link.
 
 Environment secrets are unavailable to a job until its protection rules pass. This is the key control that keeps the production Cloudflare token away from an unapproved run. GitHub supports users or teams as required reviewers: [GitHub deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
 
@@ -152,10 +146,8 @@ Example mapping:
 
 | GitHub environment | `WORKER_URL` | Token scope |
 | --- | --- | --- |
-| `health-api-dev` | `https://health-api-dev.<account>.workers.dev` | Editor on the health dev Worker |
-| `health-api-prod` | `https://health-api-prod.<account>.workers.dev` | Editor on the health prod Worker |
-| `clock-api-dev` | `https://clock-api-dev.<account>.workers.dev` | Editor on the clock dev Worker |
-| `clock-api-prod` | `https://clock-api-prod.<account>.workers.dev` | Editor on the clock prod Worker |
+| `clock-api-dev` | `https://cloudflare-workers-clock-dev.<account>.workers.dev` | Editor on the clock dev Worker |
+| `clock-api-prod` | `https://cloudflare-workers-clock-prod.<account>.workers.dev` | Editor on the clock prod Worker |
 
 GitHub never displays a secret value after it is saved. Seeing only the secret name and lock icon is expected. To change it, overwrite it with a newly generated value.
 
@@ -173,10 +165,8 @@ For least privilege, create the Worker targets before creating deployment tokens
 For example:
 
 ```text
-health-api-dev
-health-api-prod
-clock-api-dev
-clock-api-prod
+cloudflare-workers-clock-dev
+cloudflare-workers-clock-prod
 ```
 
 Creating the Workers first is important because Cloudflare per-Worker permissions cannot be assigned to a Worker that does not exist yet. Cloudflare requires product-level Workers Admin to create a new Worker, while Editor is sufficient to update and deploy an existing Worker: [Cloudflare Workers roles and permissions](https://developers.cloudflare.com/workers/authorization/workers/).
@@ -192,10 +182,8 @@ Use account-owned API tokens for CI/CD rather than a personal user token. Cloudf
 Create one account-owned token per Worker target, or at minimum one token per environment boundary:
 
 ```text
-health-api-dev token  -> Editor on health-api-dev
-health-api-prod token -> Editor on health-api-prod
-clock-api-dev token   -> Editor on clock-api-dev
-clock-api-prod token  -> Editor on clock-api-prod
+clock-api-dev token  -> Editor on cloudflare-workers-clock-dev
+clock-api-prod token -> Editor on cloudflare-workers-clock-prod
 ```
 
 The token needs:
@@ -259,17 +247,18 @@ Each Worker should own its Wrangler configuration:
 ```jsonc
 {
   "name": "company-worker",
-  "main": "src/index.js",
   "compatibility_date": "YYYY-MM-DD",
   "workers_dev": true,
   "preview_urls": false,
   "env": {
     "dev": {
       "name": "company-worker-dev",
+      "main": "worker.dev.js",
       "vars": { "ENVIRONMENT": "dev", "GIT_SHA": "local" }
     },
     "prod": {
       "name": "company-worker-prod",
+      "main": "worker.prod.js",
       "vars": { "ENVIRONMENT": "prod", "GIT_SHA": "local" }
     }
   }
@@ -310,7 +299,7 @@ The validation job should reject path traversal and non-standard folder names be
     echo "worker=$WORKER" >> "$GITHUB_OUTPUT"
 ```
 
-The deployment job should use `needs.validate.outputs.worker` in its `environment.name`, workspace commands, and smoke-test expectations. This validates the input before the matching environment secret is made available.
+The deployment job should use `needs.validate.outputs.worker` in its `environment.name` and workspace commands. This validates the input before the matching environment secret is made available.
 
 The job should reference the selected environment:
 
@@ -335,9 +324,9 @@ Keep these controls in the workflow:
 - Checkout at `${{ github.sha }}`.
 - Node.js 24 or the supported company standard.
 - `npm ci`.
-- Tests before deployment.
+- Build validation before deployment with Wrangler dry-run.
 - Concurrency grouped by Worker and environment.
-- Smoke verification after deployment.
+- Manual endpoint verification after deployment.
 - Full SHA-pinned Actions.
 
 Do not use `github.actor == 'team-name'`. GitHub Teams are not workflow actors. Use repository team permissions and environment required reviewers instead.
@@ -369,7 +358,7 @@ Use this order for a new company repository:
 
 For every future Worker:
 
-1. Add `workers/<worker-name>` with source, tests, `package.json`, and `wrangler.jsonc`.
+1. Add `workers/<worker-name>` with a README, source, `package.json`, and `wrangler.jsonc`.
 2. Add dev and prod Worker names to its Wrangler configuration.
 3. Use a lowercase kebab-case folder name and add it to the workflow’s `worker` choice options.
 4. Create the two Cloudflare Worker targets.
@@ -377,7 +366,7 @@ For every future Worker:
 6. Create GitHub environments `<worker-name>-dev` and `<worker-name>-prod`.
 7. Store the Worker-specific token and URL in those environments.
 8. Add the prod environment reviewer and `main` branch policy.
-9. Run tests and dry-run deployment for both environments.
+9. Dry-run deployment for both environments.
 10. Deploy dev from a feature branch.
 11. Deploy prod from `main` after review.
 
@@ -387,7 +376,7 @@ Rotate a token when a team member leaves, a token may have been exposed, permiss
 
 1. Create the replacement Cloudflare token.
 2. Update the affected GitHub environment secret.
-3. Run a dev deployment and smoke test.
+3. Run a dev deployment and manually verify the endpoint.
 4. Run or approve a prod deployment as appropriate.
 5. Revoke the old Cloudflare token.
 6. Check GitHub Actions logs and Cloudflare audit logs.
