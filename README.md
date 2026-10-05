@@ -10,7 +10,9 @@ workers/
     package.json
     wrangler.jsonc
   clock-api/
-    src/index.js
+    README.md
+    clock.dev.js
+    clock.prod.js
     test/worker.test.js
     package.json
     wrangler.jsonc
@@ -22,12 +24,12 @@ package.json
 package-lock.json
 ```
 
-The root uses npm workspaces and one lock file. Each Worker owns its source, tests, Wrangler configuration and deployment script.
+The root uses npm workspaces and one lock file. Each Worker owns its source, tests, Wrangler configuration and deployment script. A project may use shared code for both environments, as `health-api` does, or separate source files, as `clock-api` does.
 
 - `health-api` reports deployment identity at `/` and `/health`.
   - Dev: https://cloudflare-workers-poc-dev.n-liu.workers.dev/health
   - Prod: https://cloudflare-workers-poc-prod.n-liu.workers.dev/health
-- `clock-api` reports deployment identity at `/health` and current UTC time at `/time`.
+- [clock-api](workers/clock-api/README.md) reports deployment identity at `/health` and current UTC time at `/time`.
   - Dev: https://cloudflare-workers-clock-dev.n-liu.workers.dev/time
   - Prod: https://cloudflare-workers-clock-prod.n-liu.workers.dev/time
 
@@ -51,6 +53,54 @@ GitHub environments `health-api-dev`, `health-api-prod`, `clock-api-dev` and `cl
 
 Worker targets and runtime variables are defined in each project's `wrangler.jsonc`. The deployment step overrides `GIT_SHA` with the workflow's commit SHA. Only explicit non-sensitive fields are returned. Deployment concurrency is scoped to the Worker/environment pair.
 
+## Separate dev and prod source files
+
+The `clock-api` project keeps both entrypoints in the same folder:
+
+```text
+workers/clock-api/clock.dev.js
+workers/clock-api/clock.prod.js
+```
+
+Its Wrangler configuration pairs each entrypoint with a destination. Here `main` means the JavaScript source entrypoint and `name` means the Cloudflare Worker to update. The Git branch named `main` is selected separately by the workflow:
+
+```json
+"env": {
+  "dev": {
+    "name": "cloudflare-workers-clock-dev",
+    "main": "clock.dev.js",
+    "vars": { "ENVIRONMENT": "dev", "GIT_SHA": "local" }
+  },
+  "prod": {
+    "name": "cloudflare-workers-clock-prod",
+    "main": "clock.prod.js",
+    "vars": { "ENVIRONMENT": "prod", "GIT_SHA": "local" }
+  }
+}
+```
+
+Selecting `clock-api` and `dev` in the manual workflow bundles `clock.dev.js` and updates `cloudflare-workers-clock-dev`. Selecting `prod` bundles `clock.prod.js` and updates `cloudflare-workers-clock-prod`. The command already passes `--env`, so source selection is handled by Wrangler without separate deployment workflows.
+
+There is no default top-level `main` for `clock-api`. An unqualified `wrangler deploy` fails with a missing-entrypoint error; pass `--env dev` or `--env prod` through the existing deployment command.
+
+Both files currently provide the same API contract, with deliberately distinct identity fields:
+
+```json
+{
+  "service": "clock-api",
+  "environment": "prod",
+  "entrypoint": "clock.prod.js",
+  "commit": "<deployed Git commit>",
+  "release": "1.0.0"
+}
+```
+
+The dev response reports `clock.dev.js`. Each entrypoint returns HTTP 503 if its `ENVIRONMENT` binding belongs to the other environment or is missing. This catches mismatched runtime configuration. Cloudflare token scope and GitHub environment rules provide the access-control boundary; a filename is not a permission restriction.
+
+Dev and prod implementations can evolve independently. Test both files: a successful dev deployment does not verify the prod source. Old/new versions belong in Git commits or branches while filenames remain stable.
+
+The CI workflow already runs both entrypoints' tests and both environment builds through the project's scripts. No changes to `ci.yml` or `manual-deploy.yml` are needed for this source split. `WORKER_URL` is used by the smoke test; the deployment destination comes from the selected Wrangler configuration and account.
+
 ## Local validation
 
 Use Node.js 24:
@@ -66,6 +116,15 @@ npm run dev --workspace workers/clock-api
 Run development servers separately or choose distinct ports. `npm run check` bundles all four configurations using Wrangler's dry-run mode without deploying.
 
 For one project, use `npm test --workspace workers/clock-api` or `npm run check --workspace workers/clock-api`.
+
+To run the prod clock source locally:
+
+```sh
+cd workers/clock-api
+npx --no-install wrangler dev --env prod
+```
+
+Run this separately from the dev server or choose a different local port.
 
 The deployed endpoints are public and contain no business logic, credentials or company data. Cloudflare's native Git Builds integration is unnecessary for this GitHub Actions flow.
 

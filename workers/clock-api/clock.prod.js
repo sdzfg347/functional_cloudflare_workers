@@ -11,12 +11,13 @@ export default {
     if (!["/", "/health", "/time"].includes(path)) {
       return json({ error: "Not found" }, 404);
     }
-    if (!["dev", "prod"].includes(env.ENVIRONMENT)) {
-      return json({ error: "Environment is not configured" }, 503);
+    if (env.ENVIRONMENT !== "prod") {
+      return json({ error: "The prod entrypoint requires ENVIRONMENT=prod" }, 503);
     }
     const body = {
       service: "clock-api",
       environment: env.ENVIRONMENT,
+      entrypoint: "clock.prod.js",
       commit: env.GIT_SHA ?? "local",
       release: "1.0.0",
     };
