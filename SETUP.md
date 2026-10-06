@@ -104,7 +104,7 @@ Configure the dev environment with:
 
 - No deployment branch restriction, so feature branches can be tested.
 - A `CLOUDFLARE_DEPLOYMENT_TOKEN` environment secret.
-- A `WORKER_URL` environment variable for the deployment link.
+- A per-worker URL environment variable, initially `WORKER_URL_CLOCK_API` for the deployment link.
 
 The workflow itself still allows dev only for members of the development group. Repository Write permission is the normal control for who can dispatch the workflow.
 
@@ -117,7 +117,7 @@ Configure the prod environment with:
 - `Prevent self-review` enabled if the person who starts a deployment must not approve their own deployment.
 - Administrator bypass disabled so the approval gate also applies to repository administrators.
 - A separate `CLOUDFLARE_DEPLOYMENT_TOKEN` environment secret.
-- A `WORKER_URL` environment variable for the deployment link.
+- A per-worker URL environment variable, initially `WORKER_URL_CLOCK_API` for the deployment link.
 
 Environment secrets are unavailable to a job until its protection rules pass. This is the key control that keeps the production Cloudflare token away from an unapproved run. GitHub supports users or teams as required reviewers: [GitHub deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
 
@@ -134,18 +134,18 @@ CLOUDFLARE_ACCOUNT_ID=<company Cloudflare account ID>
 Create these values once in each shared GitHub environment:
 
 ```text
-Variable: WORKER_URL
+Variable: WORKER_URL_CLOCK_API
 Secret:   CLOUDFLARE_DEPLOYMENT_TOKEN
 ```
 
 Example mapping:
 
-| GitHub environment | `WORKER_URL` | Token scope |
+| GitHub environment | `WORKER_URL_CLOCK_API` | Token scope |
 | --- | --- | --- |
 | `dev` | `https://cloudflare-workers-clock-dev.<account>.workers.dev` | Editor on the selected dev Worker list |
 | `prod` | `https://cloudflare-workers-clock-prod.<account>.workers.dev` | Editor on the selected prod Worker list |
 
-The single `WORKER_URL` works for the current clock-only POC. For several projects, use per-worker URL variables or a reviewed mapping and update the workflow's deployment link selection to use the validated Worker name. Sharing approval rules does not imply sharing an endpoint.
+Use one URL variable per Worker in each shared environment. The workflow derives the key by replacing folder-name hyphens with underscores, uppercasing the result and adding prefix `WORKER_URL_`. Examples: `clock-api` → `WORKER_URL_CLOCK_API`; `fixture-cache` → `WORKER_URL_FIXTURE_CACHE`. Create each key in both `dev` and `prod`, with different target URLs. The workflow looks up the key automatically through `vars[needs.validate.outputs.worker_url_variable]` and fails before deployment if its value is missing.
 
 GitHub never displays a secret value after it is saved. Seeing only the secret name and lock icon is expected. To change it, overwrite it with a newly generated value.
 
@@ -302,6 +302,16 @@ The validation job should reject path traversal and non-standard folder names be
     test -f "workers/$WORKER/package.json"
     test -f "workers/$WORKER/wrangler.jsonc"
     echo "worker=$WORKER" >> "$GITHUB_OUTPUT"
+    worker_key="${WORKER//-/_}"
+    echo "worker_url_variable=WORKER_URL_${worker_key^^}" >> "$GITHUB_OUTPUT"
+```
+
+Expose both validated values as outputs of the validation job:
+
+```yaml
+outputs:
+  worker: ${{ steps.validate-worker.outputs.worker }}
+  worker_url_variable: ${{ steps.validate-worker.outputs.worker_url_variable }}
 ```
 
 The deployment job uses `needs.validate.outputs.worker` in workspace commands and `inputs.environment` as its shared GitHub environment name. Folder validation runs before the deployment job receives its environment credential.
@@ -311,7 +321,7 @@ The job should reference the selected environment:
 ```yaml
 environment:
   name: ${{ inputs.environment }}
-  url: ${{ vars.WORKER_URL }}
+  url: ${{ vars[needs.validate.outputs.worker_url_variable] }}
 ```
 
 The deployment step should receive only the selected environment’s values:
@@ -371,7 +381,7 @@ For every future Worker:
 4. Create the two Cloudflare Worker targets.
 5. Add the new dev target to the existing dev token policy, and the prod target to the existing prod token policy.
 6. Reuse shared GitHub environments `dev` and `prod`; no new environment is needed.
-7. Add per-worker URL variables or extend a reviewed URL mapping, and select the correct deployment link in the workflow.
+7. Add `WORKER_URL_<UPPERCASE_FOLDER_WITH_UNDERSCORES>` to both shared environments, with each target's base URL. The workflow automatically selects this variable from the validated folder name.
 8. Confirm the shared prod reviewer, `main` policy and administrator-bypass restriction remain configured.
 9. Dry-run deployment for both environments.
 10. Deploy dev from a feature branch.

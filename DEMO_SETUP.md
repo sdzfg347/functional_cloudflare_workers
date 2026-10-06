@@ -229,23 +229,23 @@ prod
 Open each environment's settings and add:
 
 - Under **Environment secrets**, select **Add environment secret**. Set the name to `CLOUDFLARE_DEPLOYMENT_TOKEN`, paste that target's token value, and save it.
-- Under **Environment variables**, select **Add environment variable**. Set the name to `WORKER_URL`, enter that target's HTTPS base URL, and save it.
+- Under **Environment variables**, select **Add environment variable**. Set the name to `WORKER_URL_CLOCK_API`, enter that target's HTTPS base URL, and save it.
 
 For account subdomain `my-demo.workers.dev`, the mapping is:
 
-| GitHub environment | `WORKER_URL` | Secret value to select |
+| GitHub environment | `WORKER_URL_CLOCK_API` | Secret value to select |
 | --- | --- | --- |
 | `dev` | `https://cloudflare-workers-clock-dev.my-demo.workers.dev` | Token for the clock dev target |
 | `prod` | `https://cloudflare-workers-clock-prod.my-demo.workers.dev` | Token for the clock prod target |
 
-Replace `my-demo` with your actual account subdomain. Copy the URL from each Worker's Cloudflare dashboard; the source repository's URLs belong to a different account. `WORKER_URL` supplies the public link shown on GitHub deployment records; open `/health` or `/time` manually after deploying.
+Replace `my-demo` with your actual account subdomain. Copy the URL from each Worker's Cloudflare dashboard; the source repository's URLs belong to a different account. `WORKER_URL_CLOCK_API` supplies the public link shown on GitHub deployment records; open `/health` or `/time` manually after deploying.
 
 Do not store a deployment token at repository scope or as a variable. The workflow selects the shared environment directly:
 
 ```yaml
 environment:
   name: ${{ inputs.environment }}
-  url: ${{ vars.WORKER_URL }}
+  url: ${{ vars[needs.validate.outputs.worker_url_variable] }}
 ```
 
 Its authentication step must retain Wrangler's runner variable name while reading the renamed secret:
@@ -256,7 +256,7 @@ env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOYMENT_TOKEN }}
 ```
 
-Create exactly `dev` and `prod`; they are shared by all Worker projects. Each stores a different value under the same secret name. For this one-project demo, its `WORKER_URL` points to the clock target for that environment.
+Create exactly `dev` and `prod`; they are shared by all Worker projects. Each stores a different value under the same secret name. For this clock project, `WORKER_URL_CLOCK_API` points to the clock target for that environment. The validation job derives this key from folder `clock-api`: replace hyphens with underscores, uppercase the name, then prefix `WORKER_URL_`. It exports the result as `worker_url_variable`; the deploy job selects the variable using that output. Future Workers get their own URL variable in the same two environments. A missing URL value causes the deployment step to fail before publishing.
 
 Environment secrets are released only to jobs referencing their environment after its protection rules pass. GitHub does not let you read a saved secret value back; updating replaces it. [GitHub environment secrets](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments), [GitHub secrets reference](https://docs.github.com/en/actions/reference/security/secrets)
 
@@ -405,6 +405,7 @@ After the experiment, remove the demo tokens and Workers when you no longer need
 | Worker-folder validation fails | Select `clock-api`; ensure `package.json` and `wrangler.jsonc` exist at that commit |
 | Failure before deployment steps | Inspect environment branch rules; dev should use No restriction, prod Branch `main` |
 | Empty account ID | Add repository secret `CLOUDFLARE_ACCOUNT_ID`; the workflow reads `secrets`, not `vars`, for this value |
+| Missing Worker URL | Add `WORKER_URL_CLOCK_API` to both shared environments; use the matching URL for each |
 | Empty deployment token | Create shared `dev` and `prod` environments; add `CLOUDFLARE_DEPLOYMENT_TOKEN` to each, and map it to runner variable `CLOUDFLARE_API_TOKEN` |
 | Cloudflare authentication error 10000 | Check token validity, target scope, account ID and failing API endpoint; see Step 6 compatibility notes |
 | Node engine error | Use Node.js 24 locally and leave the Node setup step in CI |
@@ -429,4 +430,4 @@ After the experiment, remove the demo tokens and Workers when you no longer need
 
 ## Adding another demo Worker
 
-Add `workers/<name>` with its own README, source, package and Wrangler configuration; update the npm lock file; add `<name>` to the predefined Worker dropdown; and create its dev/prod Cloudflare targets. Add the new dev target to `dev_workers_deployment_token` and the prod target to `prod_workers_deployment_token`. Reuse the shared `dev` and `prod` GitHub environments, secrets and prod protection. Provide a `check` script that dry-runs both environments and document endpoint verification. Replace the single `WORKER_URL` with a per-worker variable or reviewed URL mapping selected by the validated Worker name, so GitHub links to the selected project rather than always to clock. Follow Steps 10–12 again for the new project.
+Add `workers/<name>` with its own README, source, package and Wrangler configuration; update the npm lock file; add `<name>` to the predefined Worker dropdown; and create its dev/prod Cloudflare targets. Add the new dev target to `dev_workers_deployment_token` and the prod target to `prod_workers_deployment_token`. Reuse the shared `dev` and `prod` GitHub environments, secrets and prod protection. Provide a `check` script that dry-runs both environments and document endpoint verification. Create `WORKER_URL_<UPPERCASE_FOLDER_WITH_UNDERSCORES>` in each shared environment with that Worker's dev/prod URL. For example, `fixture-cache` uses `WORKER_URL_FIXTURE_CACHE`. The workflow automatically picks the correct key from the validated folder; no URL mapping edit is required. Follow Steps 10–12 again for the new project.

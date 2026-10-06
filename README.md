@@ -44,7 +44,7 @@ All Worker projects share two GitHub environments: `dev` and `prod`. The deploy 
 ```yaml
 environment:
   name: ${{ inputs.environment }}
-  url: ${{ vars.WORKER_URL }}
+  url: ${{ vars[needs.validate.outputs.worker_url_variable] }}
 ```
 
 Each environment has its own secret named `CLOUDFLARE_DEPLOYMENT_TOKEN`. The dev value comes from Cloudflare's `dev_workers_deployment_token`; the prod value comes from `prod_workers_deployment_token`. These are different token values. Each token grants Individual Workers Editor on an explicit list of matching targets, initially just `cloudflare-workers-clock-dev` or `cloudflare-workers-clock-prod`. The name does not grant permissions or automatically include future Workers.
@@ -63,11 +63,13 @@ env:
 
 `CLOUDFLARE_API_TOKEN` remains the runner variable because Wrangler reads that exact name. It is not a Worker runtime binding. Neither deployment credential is exposed in the HTTP response. GitHub hides saved secret values; seeing only their names is expected.
 
-The shared account ID remains a **repository secret**, `CLOUDFLARE_ACCOUNT_ID`. `WORKER_URL` remains a non-sensitive variable in each environment: the clock dev URL in `dev`, and the clock prod URL in `prod`. It supplies GitHub's deployment link; Wrangler's `env.<environment>.name` selects the actual Cloudflare destination.
+The shared account ID remains a **repository secret**, `CLOUDFLARE_ACCOUNT_ID`. Worker URLs remain non-sensitive **per-worker variables inside each environment**. For `clock-api`, configure `WORKER_URL_CLOCK_API` in both `dev` and `prod`, with the corresponding clock URL in each. For a future `fixture-cache` project, add `WORKER_URL_FIXTURE_CACHE` in both environments with that project's URLs.
+
+The validation job derives the variable name from the selected folder: replace hyphens with underscores, uppercase it, then prefix `WORKER_URL_`. It exports that key as `worker_url_variable`; the deploy job looks it up through `vars[needs.validate.outputs.worker_url_variable]`. This supplies the correct GitHub deployment link for the selected Worker and environment. The deployment step checks that the URL is configured before publishing. Wrangler's `env.<environment>.name` still selects the actual Cloudflare destination.
 
 Production protection is configured once on `prod` and applies to every deployment job that references it: branch `main` only, required reviewer `sdzfg347`, and administrator bypass disabled. Self-review is allowed for this one-owner demo. Company repositories should use a release team and enable prevention of self-review when a second approver is required.
 
-Before deploying an older feature branch, merge or rebase the latest `main` so its workflow uses the shared environments and renamed deployment secret. The workflow file comes from the branch selected at dispatch.
+Before deploying an older feature branch, merge or rebase the latest `main` so its workflow uses the shared environments, renamed deployment secret and per-worker URL lookup. The workflow file comes from the branch selected at dispatch.
 
 Worker targets and runtime variables are defined in each project's `wrangler.jsonc`. The command is `npm run deploy --workspace "workers/$WORKER" -- --env "$DEPLOY_ENVIRONMENT" --var "GIT_SHA:$GITHUB_SHA"`. `DEPLOY_ENVIRONMENT` comes from the form, while GitHub supplies `GITHUB_SHA` for the selected commit. Wrangler overrides the configured `GIT_SHA: local`; that default keeps local development usable outside Actions. Only explicit non-sensitive fields are returned. Deployment concurrency is scoped to the Worker/environment pair.
 
@@ -151,7 +153,7 @@ The deployed endpoints are public and contain no business logic, credentials or 
 3. Add the folder name to the predefined `worker.options` dropdown in `deploy.yml`. GitHub choice options are static.
 4. Create the dev/prod Cloudflare targets through an authorized account operator. Add each target to its matching deployment token's selected Worker list. Preserve the opposite environment's exclusion.
 5. Reuse the existing GitHub `dev` and `prod` environments and their approval rules. No new environment or token is required per Worker.
-6. Configure the deployment link for multiple projects before deploying: replace the single `WORKER_URL` with a per-worker URL variable or a reviewed URL mapping and select it using the validated Worker name. One URL variable cannot represent every Worker in a shared environment.
+6. Add `WORKER_URL_<UPPERCASE_FOLDER_WITH_UNDERSCORES>` to both GitHub environments, with each target's base URL. For example, `fixture-cache` uses `WORKER_URL_FIXTURE_CACHE`. The workflow selects it automatically; no URL mapping edit is needed.
 7. Run packaging checks, deploy dev from a selected branch, then deploy prod from `main` after approval. Verify the actual endpoint and commit independently.
 
 A dev branch can execute arbitrary workflow code with the dev credential. Cloudflare resource scope is therefore essential: GitHub approvals and actor checks alone cannot stop a broad dev token from modifying prod through the Cloudflare API. Production credentials remain in the protected `prod` environment.
