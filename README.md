@@ -49,6 +49,10 @@ environment:
 
 Each environment has its own secret named `CLOUDFLARE_DEPLOYMENT_TOKEN`. The dev value comes from Cloudflare's `dev_workers_deployment_token`; the prod value comes from `prod_workers_deployment_token`. These are different token values. Each token grants Individual Workers Editor on an explicit list of matching targets, initially just `cloudflare-workers-clock-dev` or `cloudflare-workers-clock-prod`. The name does not grant permissions or automatically include future Workers.
 
+Both tokens also have **Workers → Metadata Read-only at account scope**. This permits Wrangler to read the account's `workers.dev` subdomain. The tested Wrangler 4.134.0 uploaded successfully with individual Editor alone, then failed that account-level read; adding metadata read resolved it. This grants metadata visibility across Workers, including prod, while script-content and edit access remain limited to the selected target list. It does not grant account-wide Editor or Workers Scripts Read.
+
+The current replacement tokens expire at **2026-10-18 23:59 UTC** (19 October, 10:59 AEDT). Rotate each environment's secret before that deadline.
+
 The deployment step maps the renamed GitHub secret to Wrangler's required authentication variable:
 
 ```yaml

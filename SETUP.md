@@ -184,13 +184,14 @@ dev_workers_deployment_token  -> Editor on the selected dev Workers
 prod_workers_deployment_token -> Editor on the selected prod Workers
 ```
 
-In **Manage account → Account API tokens → Create Token**, set the name, choose **Start from scratch**, choose **Specified Workers**, select all intended targets for that environment, and select **Individual Workers → Editor**. Close the editor, set an expiry, review the exact resource list, then create the token. Copy its one-time value into the matching GitHub environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN`. Repeat for the opposite environment with a different value.
+In **Manage account → Account API tokens → Create Token**, set the name, choose **Start from scratch**, choose **Specified Workers**, select all intended targets for that environment, and select **Individual Workers → Editor**. Close the editor. Add a second policy at **Entire Account** scope, search for **Workers**, and select only the modern **Workers → Metadata Read-only** role. This enables Wrangler's account-level `workers.dev` subdomain read. Do not select Workers Editor, Admin, Content Read-only, or legacy Workers Scripts Read at account scope. Close the editor, set an expiry, review both policies and the exact target list, then create the token. Copy its one-time value into the matching GitHub environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN`. Repeat for the opposite environment with a different value.
 
 The token name is descriptive. Resource selection enforces access. Do not choose account-wide Workers Editor for dev when dev and prod share an account. Future Workers are not added automatically: create their targets first, then update the matching token's selected Worker list.
 
 The token needs:
 
-- Cloudflare Workers `Editor` role.
+- Individual Workers `Editor` on the selected target list.
+- Workers product `Metadata Read-only` at account scope for Wrangler's subdomain lookup. This exposes metadata across environments; it does not grant script content or edit permissions on other targets.
 - Scope limited to the selected individual Workers in one environment.
 - An expiry date and documented rotation owner.
 
@@ -397,7 +398,7 @@ If a token is exposed, revoke it immediately. Do not rely on GitHub masking as a
 | GitHub production approver | Read access to the repository plus membership in the prod required-reviewer team |
 | GitHub platform administrator | Repository Admin and organization environment-management authority |
 | GitHub Actions token | `contents: read` |
-| Cloudflare steady-state deploy token | Account-owned Individual Workers Editor scoped to an explicit list of existing dev or prod Workers |
+| Cloudflare steady-state deploy token | Account-owned Individual Workers Editor on the selected dev or prod list, plus account Workers Metadata Read-only for the workers.dev lookup |
 | Cloudflare Worker creation | Product-level Workers Admin, only during controlled bootstrap |
 | Cloudflare route/custom-domain changes | Worker Editor plus Zone Workers Routes Write |
 | Cloudflare resource creation | The specific product permission for the resource; not needed merely to deploy an existing binding |

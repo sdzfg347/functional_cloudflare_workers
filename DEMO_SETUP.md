@@ -24,7 +24,7 @@ Complete Steps 1–12 to reproduce the flow as one developer. Step 13 adds an op
 | Optional developer collaborator | Repository Write access; no Admin access | Push feature branches and start manual workflows |
 | GitHub Actions `GITHUB_TOKEN` | `contents: read` | Check out the selected commit; provided automatically by GitHub |
 | You, setting up your Cloudflare account | Account-owner access | Create test Workers and deployment tokens through the dashboard |
-| Normal Cloudflare deployment token | Workers Editor, scoped to one existing Worker | Upload and deploy that specific target |
+| Normal Cloudflare deployment token | Individual Workers Editor on the selected target; account Workers Metadata Read-only | Deploy the target and let Wrangler read the account's workers.dev subdomain |
 
 Use the owner of your personal Cloudflare account for setup. Creating account-owned API tokens requires token-provisioning access or Super Administrator status. These are human setup privileges; the deployment token needs only the permissions for its Worker. [Cloudflare account API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/)
 
@@ -180,12 +180,14 @@ Create two account-owned tokens:
 4. Select the scope **Specified Workers**.
 5. Select exactly `cloudflare-workers-clock-dev` for this first token.
 6. Select **Individual Workers → Editor**.
-7. Finish or close the policy editor and confirm there is only the intended policy.
+7. Close the editor, then select **Add policy**. Keep scope **Entire Account**, search for `Workers`, and select only the modern **Workers → Metadata Read-only** checkbox. Close the editor again. There should be two policies: Editor on the selected Worker, and account Workers Metadata Read-only.
 8. Choose an expiry, for example 30 days, and record the renewal date.
 9. Select **Review token** or **Continue to summary**.
 10. Check the target and role, then select **Create token**.
 11. Copy the value shown once into a password manager until you store it in GitHub. Complete the success dialog with **Confirm** or **Done** after saving it.
 12. Repeat with name `prod_workers_deployment_token`, selecting only `cloudflare-workers-clock-prod`. Record each token's selected Worker and expiry. These two tokens can later cover multiple targets by adding dev Workers to the dev policy and prod Workers to the prod policy.
+
+The account metadata policy is required by the tested Wrangler 4.134.0: individual Editor successfully uploaded a Worker but could not read `/accounts/<id>/workers/subdomain` until metadata read was added. It permits metadata visibility across the account, including prod. Script-content and edit access still apply only to the selected targets. Do not grant account-wide Workers Editor, Admin or Content Read-only, or legacy Workers Scripts Read, to solve that read failure.
 
 Use a different token value for dev and prod. Token names and identical GitHub secret names do not establish permission isolation; the Cloudflare policies do.
 
