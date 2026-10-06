@@ -1,110 +1,162 @@
-# Personal-account demo: GitHub Actions to Cloudflare Workers
+# Personal demo setup
 
-Follow this complete guide to create the demo in your own GitHub repository, connect it to your own Cloudflare account, and verify manual deployments. Start with an empty repository and two new test Workers. All required configuration values and instructions are included below.
+Use this guide to reproduce the repository with your own GitHub and Cloudflare accounts.
+This guide contains the complete setup procedure.
 
-Documentation checked: 2026-10-06. Dashboard labels can change; the permissions and configuration values below are the important parts.
+The demo has one project, `clock-api`, and two Cloudflare targets.
+Both targets are test Workers.
+The name `prod` identifies the target that requires approval.
 
-## What you will build
+## Before you start
 
-- One GitHub workspace project: `workers/clock-api`, containing `clock.dev.js` and `clock.prod.js`.
-- Two Cloudflare test Workers: clock dev and clock prod.
-- CI that builds both environment configurations on pushes and pull requests.
-- A manual deployment form with a Worker dropdown, environment dropdown, and branch selector.
-- Dev deployments from selected branches; prod deployments from `main` with your approval.
+Use these tools and accounts:
 
-In this guide, `prod` means a second demo target. It does not require a paid Cloudflare plan or a real production domain.
+- Git.
+- Node.js 24 and npm.
+- A text editor and web browser.
+- A personal GitHub account.
+- A Cloudflare account that you control.
 
-Complete Steps 1–12 to reproduce the flow as one developer. Step 13 adds an optional second developer; Step 14 covers credential rotation and cleanup.
+Use a public GitHub repository for the free demo.
+Public repositories support the environment secrets and approval rules used here.
+Private repositories require an eligible plan for each protection feature.
+See [GitHub environment availability](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
 
-## Minimum access and prerequisites
+The test Workers can use Cloudflare Workers Free within its usage limits.
+A purchased domain is unnecessary.
 
-| Who or credential | Access needed | Why |
-| --- | --- | --- |
-| You, setting up GitHub | Owner/Admin of your own repository | Configure Actions, environments, variables, secrets and protection rules |
-| Optional developer collaborator | Repository Write access; no Admin access | Push feature branches and start manual workflows |
-| GitHub Actions `GITHUB_TOKEN` | `contents: read` | Check out the selected commit; provided automatically by GitHub |
-| You, setting up your Cloudflare account | Account-owner access | Create test Workers and deployment tokens through the dashboard |
-| Normal Cloudflare deployment token | Individual Workers Editor on the selected target; account Workers Metadata Read-only | Deploy the target and let Wrangler read the account's workers.dev subdomain |
+### Required access
 
-Use the owner of your personal Cloudflare account for setup. Creating account-owned API tokens requires token-provisioning access or Super Administrator status. These are human setup privileges; the deployment token needs only the permissions for its Worker. [Cloudflare account API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/)
+- **GitHub setup operator:** the repository owner.
+- **Optional collaborator:** repository Write access.
+- **GitHub workflow token:** `contents: read`.
+- **Cloudflare setup operator:** access to create Workers and account API tokens.
+- **Cloudflare deployment tokens:** the two policies specified in Step 5.
 
-You also need Git, Node.js 24, npm, a text editor, and a web browser. GitHub CLI is optional. Use a Cloudflare account containing only demo resources.
+The Cloudflare account owner can perform the setup.
+Other token creators need API Token Provisioning capabilities and the permissions they grant.
+Super Administrator access also permits token creation.
+See [Cloudflare account API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/).
 
-The two credentials have separate purposes: GitHub's automatically generated `GITHUB_TOKEN` checks out the repository; your GitHub secret `CLOUDFLARE_DEPLOYMENT_TOKEN` authorizes publishing to Cloudflare. The YAML passes that secret as the runner variable `CLOUDFLARE_API_TOKEN`, the exact name Wrangler expects. GitHub repository access does not grant access to Cloudflare.
+GitHub supplies `GITHUB_TOKEN` automatically for repository access.
+You create the Cloudflare tokens separately.
+Collaborators do not need Cloudflare dashboard access to use this workflow.
 
-### Free-plan choice
+## 1. Create an empty GitHub repository
 
-For the complete demo, use a **public GitHub repository** on GitHub Free. A private Free repository does not support this environment-secret setup. GitHub Pro supports private-repository environments, but private-repository required deployment reviewers need an eligible Enterprise plan. Do not assume paying for Pro alone reproduces the prod approval gate. [GitHub environment availability](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
-
-Cloudflare Workers Free is sufficient for these small test endpoints within its usage limits. A purchased domain is unnecessary. [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/)
-
-## Step 1: create your GitHub repository
-
-1. Sign in to GitHub as the account that will own the demo.
+1. Sign in to your personal GitHub account.
 2. Select **New repository**.
-3. Name it, for example, `my-cloudflare-workers-demo`.
+3. Enter a name, for example, `my-cloudflare-workers-demo`.
 4. Select **Public**.
-5. Leave the README, license and `.gitignore` initialization options empty; you will copy the existing project next.
-6. Create the repository and record its HTTPS clone URL.
+5. Leave the README, license, and gitignore initialization options empty.
+6. Create the repository.
+7. Copy its HTTPS clone URL.
 
-The repository owner will be the initial deployment operator and prod approver.
+The following examples use `YOUR_GITHUB_LOGIN` as a placeholder.
+Replace this placeholder with your GitHub login.
 
-## Step 2: copy the demo into your repository
+## 2. Copy the project
 
-In a terminal, replace `YOUR_GITHUB_LOGIN` and the destination repository name with your values:
+1. Open a terminal.
+2. Copy the source repository:
 
-```sh
-git clone https://github.com/sdzfg347/functional_cloudflare_workers.git my-cloudflare-workers-demo
-cd my-cloudflare-workers-demo
-git remote set-url origin https://github.com/YOUR_GITHUB_LOGIN/my-cloudflare-workers-demo.git
-git remote -v
+   ```sh
+   git clone https://github.com/sdzfg347/functional_cloudflare_workers.git my-cloudflare-workers-demo
+   cd my-cloudflare-workers-demo
+   ```
+
+3. Set your repository as the destination:
+
+   ```sh
+   git remote set-url origin https://github.com/YOUR_GITHUB_LOGIN/my-cloudflare-workers-demo.git
+   ```
+
+4. Check the destination:
+
+   ```sh
+   git remote -v
+   ```
+
+5. Confirm that both URLs identify your repository.
+6. Check your Node.js version:
+
+   ```sh
+   node --version
+   ```
+
+7. Confirm that the version starts with `v24.`.
+8. Install dependencies:
+
+   ```sh
+   npm ci
+   ```
+
+9. Check both source files:
+
+   ```sh
+   npm run check
+   ```
+
+If Node.js 24 is absent, install it before Step 8.
+
+Git copies the project files and commit history.
+It does not copy GitHub secrets, environments, collaborators, or protection rules.
+A successful dry-run confirms that Wrangler can package the source files.
+It does not verify Cloudflare access.
+
+### Files used by this procedure
+
+```text
+my-cloudflare-workers-demo/
+├── .github/
+│   └── workflows/
+│       ├── build.yml
+│       └── deploy.yml
+├── workers/
+│   └── clock-api/
+│       ├── README.md
+│       ├── clock.dev.js
+│       ├── clock.prod.js
+│       ├── package.json
+│       └── wrangler.jsonc
+├── .gitignore
+├── DEMO_SETUP.md
+├── README.md
+├── package.json
+└── package-lock.json
 ```
 
-Confirm that both fetch and push URLs now point to **your repository**. These commands copy code and history; GitHub environment settings, collaborators, branch rules and secret values are not copied.
+This tree shows the files used by the personal demo.
 
-If Git asks you to authenticate for the later push, use your normal GitHub Git credentials, SSH setup, or GitHub CLI login. The deployment workflow does not need a GitHub personal access token stored as a secret.
+The root package defines `workers/*` as npm workspaces.
+Each Worker has its own configuration.
+All workspaces use the root lock file.
 
-Check the local tools:
+## 3. Configure your deployment identity
 
-```sh
-git --version
-node --version
-npm --version
-```
+The source workflow names the original repository users.
+Replace that condition before your first deployment.
 
-`node --version` must report `v24.x.x`. If you already use nvm, select that runtime with:
+1. Open `.github/workflows/deploy.yml`.
+2. Find `jobs.validate.if`.
+3. Replace its expression with the following:
 
-```sh
-nvm install 24
-nvm use 24
-```
+   ```yaml
+   if: >-
+     (inputs.environment == 'dev' || inputs.environment == 'prod') &&
+     github.ref_type == 'branch' &&
+     github.actor == github.repository_owner &&
+     (inputs.environment == 'dev' || github.ref == 'refs/heads/main')
+   ```
 
-Otherwise, install Node.js 24 using your preferred installer or version manager before proceeding. Then validate the copied project:
+4. Keep the existing indentation.
+5. Save the file.
 
-```sh
-npm ci
-npm run check
-```
+This condition permits your personal repository owner to deploy.
+Dev accepts selected branches.
+Prod accepts `main` only.
 
-Expected: Wrangler dry-runs the clock dev and prod configurations. **Dry-run validates packaging; it does not prove that a Cloudflare token can deploy.** No Cloudflare deployment credential is required for these local checks.
-
-## Step 3: adapt the workflow to your GitHub identity
-
-Open `.github/workflows/deploy.yml` in your text editor. The copied file contains an allowlist for the source repository's users. Replace it so your own account can deploy.
-
-For a single-person personal repository, find `jobs` → `validate` → `if`. Replace only that expression with the following, keeping the existing indentation:
-
-```yaml
-if: >-
-  (inputs.environment == 'dev' || inputs.environment == 'prod') &&
-  github.ref_type == 'branch' &&
-  github.actor == github.repository_owner &&
-  (inputs.environment == 'dev' || github.ref == 'refs/heads/main')
-```
-
-This uses your personal repository owner automatically. It permits the owner to deploy dev from any branch and prod only from `main`. Keep the separate `deploy` job and its dependency on successful validation. Save the file; you will commit this change in Step 9.
-
-Retain the predefined Worker dropdown:
+Keep the existing Worker dropdown:
 
 ```yaml
 worker:
@@ -116,131 +168,155 @@ worker:
     - clock-api
 ```
 
-Retain `dev` and `prod` as the environment choices. GitHub cannot generate this dropdown from folders, so adding another Worker later means adding its folder name to `options`.
+Keep both `dev` and `prod` environment choices.
+GitHub does not generate dropdown options from repository folders.
 
-### Workflow permissions
-
-Both workflows should retain:
+Both workflows require this permission:
 
 ```yaml
 permissions:
   contents: read
 ```
 
-For this implementation, do not add `contents: write`, `actions: write`, `pull-requests: write`, `deployments: write` or `id-token: write`. Cloudflare uses its separate API token. Keep the pinned checkout/setup-node Actions and the `persist-credentials: false` checkout setting.
+Keep the full commit references for `actions/checkout` and `actions/setup-node`.
+Keep `persist-credentials: false`.
+This workflow needs no GitHub personal access token as a repository secret.
 
-In your GitHub repository, open **Settings → Actions → General** and make sure Actions is enabled. If you restrict allowed Actions, allow the pinned `actions/checkout` and `actions/setup-node` used in the YAML. Under **Workflow permissions**, choose the read-only option. The YAML's explicit `contents: read` is sufficient for this flow.
+## 4. Create the Cloudflare targets
 
-## Step 4: prepare your Cloudflare account
+1. Sign in to your Cloudflare account.
+2. Complete email verification if Cloudflare requests it.
+3. Select the account for this demo.
+4. Copy the Account ID.
+5. Open **Workers & Pages** under **Compute**.
+6. Register the account's `workers.dev` subdomain if necessary.
+7. Select **Create application** or **Create app**.
+8. Select **Start with Hello World**.
+9. Enter `cloudflare-workers-clock-dev` as the Worker name.
+10. Select **Deploy**.
+11. Copy the dev Worker's base URL.
+12. Repeat Steps 7–11 with name `cloudflare-workers-clock-prod`.
 
-1. Create a personal Cloudflare account if you do not have one, and complete email verification.
-2. Sign in to the Cloudflare dashboard and select your own account. Workers Free is sufficient for this demo.
-3. Open **Workers & Pages**; in some navigation layouts this is under **Compute**.
-4. Copy the **Account ID** shown in the account details. Keep it available for Step 7.
-5. Note or register the account's **workers.dev subdomain**, for example `my-demo.workers.dev`.
-
-The account ID identifies the destination. The API token authenticates deployment access. They are different values.
-
-GitHub Actions connects to Cloudflare through the deployment API using the token you will create. When creating Workers, choose Hello World rather than Connect GitHub; this keeps Cloudflare's separate automatic Git Builds out of the manual deployment flow.
-
-## Step 5: create the two Cloudflare targets
-
-The easiest least-privilege bootstrap is to create the Workers through the dashboard using your human account, before creating scoped deployment tokens.
-
-For each name below:
-
-1. In **Workers & Pages**, select **Create application** or **Create app**.
-2. Choose **Start with Hello World**.
-3. Enter the exact Worker name.
-4. Select **Deploy**.
-5. Record the resulting URL.
-
-Use these names if you keep the repository's existing Wrangler files:
-
-| Folder selected in GitHub | Wrangler environment | Cloudflare Worker name |
-| --- | --- | --- |
-| `clock-api` | `dev` | `cloudflare-workers-clock-dev` |
-| `clock-api` | `prod` | `cloudflare-workers-clock-prod` |
-
-Worker names are scoped to your Cloudflare account. Use the names in this table to match the copied code; your account subdomain makes the public URLs unique to your account.
-
-If you choose different Worker names, update `env.dev.name` and `env.prod.name` in `workers/clock-api/wrangler.jsonc` to match. Keep the `clock-api` folder and its two source files for this reproduction. `env.dev.main` selects `clock.dev.js`; `env.prod.main` selects `clock.prod.js`.
-
-Initially these targets return Hello World. The GitHub deployment replaces that with the project's code.
-
-## Step 6: create the minimum deployment tokens
-
-For a `workers.dev`-only deployment to pre-existing targets, start with **Workers Editor scoped to the individual target**. New-Worker creation requires product-level Workers Admin, which is why Step 5 happens first. Routes/custom-domain changes require additional zone permission; this demo does not change them. [Cloudflare Workers authorization](https://developers.cloudflare.com/workers/authorization/workers/)
-
-Create two account-owned tokens:
-
-1. Open **Manage account → Account API tokens → Create Token**.
-2. Name the dev token `dev_workers_deployment_token`. The prod token will be `prod_workers_deployment_token`.
-3. Choose **Start from scratch** or the custom-policy option.
-4. Select the scope **Specified Workers**.
-5. Select exactly `cloudflare-workers-clock-dev` for this first token.
-6. Select **Individual Workers → Editor**.
-7. Close the editor, then select **Add policy**. Keep scope **Entire Account**, search for `Workers`, and select only the modern **Workers → Metadata Read-only** checkbox. Close the editor again. There should be two policies: Editor on the selected Worker, and account Workers Metadata Read-only.
-8. Choose an expiry, for example 30 days, and record the renewal date.
-9. Select **Review token** or **Continue to summary**.
-10. Check the target and role, then select **Create token**.
-11. Copy the value shown once into a password manager until you store it in GitHub. Complete the success dialog with **Confirm** or **Done** after saving it.
-12. Repeat with name `prod_workers_deployment_token`, selecting only `cloudflare-workers-clock-prod`. Record each token's selected Worker and expiry. These two tokens can later cover multiple targets by adding dev Workers to the dev policy and prod Workers to the prod policy.
-
-The account metadata policy is required by the tested Wrangler 4.134.0: individual Editor successfully uploaded a Worker but could not read `/accounts/<id>/workers/subdomain` until metadata read was added. It permits metadata visibility across the account, including prod. Script-content and edit access still apply only to the selected targets. Do not grant account-wide Workers Editor, Admin or Content Read-only, or legacy Workers Scripts Read, to solve that read failure.
-
-Use a different token value for dev and prod. Token names and identical GitHub secret names do not establish permission isolation; the Cloudflare policies do.
-
-A minimal credential for these applications needs no Pages, KV, R2, D1, DNS, API-token-management or zone-route write permissions. It also needs no permission to manage the GitHub repository. Adding resources or domain configuration later requires a separate review of the operations performed.
-
-### If a scoped token cannot deploy
-
-A valid token can still lack permission for a particular API call made by Wrangler. Diagnose the failing request before changing the scope. The broad **Edit Cloudflare Workers** template grants more permissions than an individual-Worker Editor token and should not be presented as the minimum.
-
-If your scoped token fails:
-
-1. Check the error's endpoint, selected account, exact Worker name, token expiry, and GitHub environment secret.
-2. Confirm that the Worker already exists and that the policy selects it.
-3. Test the supported Wrangler version and retry the scoped credential.
-4. If a one-person functional demo is still blocked, create a temporary account-owned token using the documented **Edit Cloudflare Workers** CI template. Follow the same token-creation steps, selecting that template instead of the custom individual-Worker policy. Restrict it to your isolated demo account, review its additional permissions, and set a short expiry. In Step 7, store it in the affected environment secret. This is a compatibility fallback, not the minimum-permission path. [Cloudflare GitHub Actions authentication](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)
-
-**Before inviting a dev-only collaborator, ensure the dev tokens cannot modify prod Workers.** An account-wide token used by dev can authorize prod changes directly through Cloudflare, even if the GitHub prod environment requires approval. Separate secret names or duplicate tokens with the same broad scope do not fix that. If scoped deployment is unavailable, use separate dev/prod Cloudflare accounts and environment-level account-ID secrets, or keep the broad-token fallback limited to a solo experiment.
-
-If you use separate accounts, create the dev targets in the dev account and the prod targets in the prod account. In Step 7, add `CLOUDFLARE_ACCOUNT_ID` as an **environment secret** in each GitHub environment, with the corresponding account's ID, instead of using one shared repository value. Use tokens and Worker URLs from that same account. The existing `secrets.CLOUDFLARE_ACCOUNT_ID` expression will read the selected environment's secret.
-
-## Step 7: create GitHub secrets, variables and environments
-
-Open your repository's **Settings → Secrets and variables → Actions → Secrets**. Select **New repository secret**, enter the following, and select **Add secret**:
+Example URLs:
 
 ```text
-Name:  CLOUDFLARE_ACCOUNT_ID
-Value: your Cloudflare Account ID
+https://cloudflare-workers-clock-dev.YOUR_SUBDOMAIN.workers.dev
+https://cloudflare-workers-clock-prod.YOUR_SUBDOMAIN.workers.dev
 ```
 
-The YAML reads `secrets.CLOUDFLARE_ACCOUNT_ID`. Store this value as a secret, not a repository variable. An account ID identifies the destination rather than granting access, but this demo stores it as a secret so its value is hidden in the GitHub settings and masked in Actions logs.
+Use the actual URLs from your dashboard.
+Do not use the source repository's account subdomain.
 
-Then open **Settings → Environments**. Select **New environment**, enter a name, and select **Configure environment**. Repeat for both exact names:
+The existing configuration expects these pairs:
 
 ```text
-dev
-prod
+env.dev  → clock.dev.js  → cloudflare-workers-clock-dev
+env.prod → clock.prod.js → cloudflare-workers-clock-prod
 ```
 
-Open each environment's settings and add:
+If you choose different target names, change `env.dev.name` and `env.prod.name` in `workers/clock-api/wrangler.jsonc`.
+Keep the entrypoint names.
 
-- Under **Environment secrets**, select **Add environment secret**. Set the name to `CLOUDFLARE_DEPLOYMENT_TOKEN`, paste that target's token value, and save it.
-- Under **Environment variables**, select **Add environment variable**. Set the name to `WORKER_URL_CLOCK_API`, enter that target's HTTPS base URL, and save it.
+Wrangler's `main` property identifies a JavaScript entrypoint.
+It does not select a Git branch.
 
-For account subdomain `my-demo.workers.dev`, the mapping is:
+Create the targets before the deployment tokens.
+Individual Worker permissions require an existing target.
+GitHub Actions performs deployment directly through the Cloudflare API.
+This procedure does not use Cloudflare Git Builds.
 
-| GitHub environment | `WORKER_URL_CLOCK_API` | Secret value to select |
-| --- | --- | --- |
-| `dev` | `https://cloudflare-workers-clock-dev.my-demo.workers.dev` | Token for the clock dev target |
-| `prod` | `https://cloudflare-workers-clock-prod.my-demo.workers.dev` | Token for the clock prod target |
+## 5. Create two deployment tokens
 
-Replace `my-demo` with your actual account subdomain. Copy the URL from each Worker's Cloudflare dashboard; the source repository's URLs belong to a different account. `WORKER_URL_CLOCK_API` supplies the public link shown on GitHub deployment records; open `/health` or `/time` manually after deploying.
+Each token requires two permission policies:
 
-Do not store a deployment token at repository scope or as a variable. The workflow selects the shared environment directly:
+- **Individual Workers → Editor:** only the matching dev or prod target.
+- **Workers → Metadata Read-only:** account scope.
+
+The first policy permits deployment to the selected target.
+The second permits Wrangler to read the account's `workers.dev` subdomain.
+It also permits metadata and observability access across the account.
+It does not permit script-content reads or edits on other targets.
+
+This combination passed deployment checks with Wrangler 4.134.0.
+Individual Worker Editor alone failed the account subdomain read.
+See [Cloudflare Worker permissions](https://developers.cloudflare.com/workers/authorization/workers/).
+
+### Create the dev token
+
+1. Open **Manage account → Account API tokens**.
+2. Select **Create Token**.
+3. Enter `dev_workers_deployment_token` as the name.
+4. Select **Start from scratch**.
+5. Select scope **Specified Workers**.
+6. Select only `cloudflare-workers-clock-dev`.
+7. Select **Individual Workers → Editor**.
+8. Close the policy editor.
+9. Select **Add policy**.
+10. Keep scope **Entire Account**.
+11. Search for `Workers`.
+12. Select only **Workers → Metadata Read-only** in this second policy.
+13. Close the policy editor.
+14. Set an expiration date.
+15. Record the expiration date.
+16. Select **Review token** or **Continue to summary**.
+17. Confirm the selected target and both permission policies.
+18. Select **Create token**.
+19. Save the token value in a password manager.
+20. Complete the success dialog.
+
+Cloudflare displays the token value once.
+Keep the value available for Step 6.
+
+### Create the prod token
+
+1. Repeat the token procedure with name `prod_workers_deployment_token`.
+2. Select only `cloudflare-workers-clock-prod` for the individual Worker policy.
+3. Keep the account-level metadata read policy.
+4. Save the separate prod token value.
+5. Record its expiration date.
+
+Use different token values for dev and prod.
+The selected resources control token access.
+The token name does not control access.
+
+Do not grant account-wide Workers Editor or Admin to either deployment token.
+The demo needs no Pages, KV, R2, D1, DNS, or zone-route write permission.
+
+## 6. Configure GitHub secrets and variables
+
+### Add the account secret
+
+1. Open your GitHub repository.
+2. Open **Settings → Secrets and variables → Actions**.
+3. Select the **Secrets** tab.
+4. Select **New repository secret**.
+5. Enter name `CLOUDFLARE_ACCOUNT_ID`.
+6. Enter your Cloudflare Account ID as the value.
+7. Select **Add secret**.
+
+The account ID identifies the account.
+The deployment token authorizes changes.
+
+### Add the shared environments
+
+1. Open **Settings → Environments**.
+2. Select **New environment**.
+3. Enter `dev`.
+4. Select **Configure environment**.
+5. Add environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN`.
+6. Use the dev token value from Step 5.
+7. Add environment variable `WORKER_URL_CLOCK_API`.
+8. Use your dev Worker's base URL.
+9. Create a second environment named `prod`.
+10. Add secret `CLOUDFLARE_DEPLOYMENT_TOKEN` to `prod`.
+11. Use the prod token value.
+12. Add variable `WORKER_URL_CLOCK_API` to `prod`.
+13. Use your prod Worker's base URL.
+
+The names are identical in both environments.
+The token and URL values differ.
+
+The workflow selects the environment and URL as follows:
 
 ```yaml
 environment:
@@ -248,7 +324,12 @@ environment:
   url: ${{ vars[needs.validate.outputs.worker_url_variable] }}
 ```
 
-Its authentication step must retain Wrangler's runner variable name while reading the renamed secret:
+The validation job converts `clock-api` to `WORKER_URL_CLOCK_API`.
+The deploy job reads that variable from the selected environment.
+The URL supplies the GitHub deployment link.
+The Wrangler target name determines the actual destination.
+
+The workflow passes credentials to Wrangler as follows:
 
 ```yaml
 env:
@@ -256,116 +337,161 @@ env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOYMENT_TOKEN }}
 ```
 
-Create exactly `dev` and `prod`; they are shared by all Worker projects. Each stores a different value under the same secret name. For this clock project, `WORKER_URL_CLOCK_API` points to the clock target for that environment. The validation job derives this key from folder `clock-api`: replace hyphens with underscores, uppercase the name, then prefix `WORKER_URL_`. It exports the result as `worker_url_variable`; the deploy job selects the variable using that output. Future Workers get their own URL variable in the same two environments. A missing URL value causes the deployment step to fail before publishing.
+Keep the runner variable name `CLOUDFLARE_API_TOKEN`.
+Wrangler requires that name.
 
-Environment secrets are released only to jobs referencing their environment after its protection rules pass. GitHub does not let you read a saved secret value back; updating replaces it. [GitHub environment secrets](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments), [GitHub secrets reference](https://docs.github.com/en/actions/reference/security/secrets)
+GitHub hides saved secret values.
+A secret entry with no visible value is normal.
+Do not store a deployment token as a variable or repository-level secret.
 
-## Step 8: set deployment protection rules
+## 7. Configure deployment protection
 
-For **dev**:
+### Dev
 
-1. Set **Deployment branches and tags → No restriction**.
-2. Do not add a required reviewer for the solo demo.
+1. Open the `dev` environment.
+2. Set **Deployment branches and tags** to **No restriction**.
+3. Leave required reviewers empty for this demo.
+4. Save the configuration.
 
-This is intentional branch testing. Arbitrary branches can execute code with the dev credential, so that credential must be limited to dev resources.
+Dev branches can execute code with the dev token.
+Its Cloudflare policy must exclude prod edit access.
 
-For **prod**:
+### Prod
 
-1. Set **Deployment branches and tags → Selected branches and tags**.
-2. Add a rule of type **Branch**, with name `main`. Do not add a Tag rule.
-3. Enable **Required reviewers** and choose your GitHub login.
-4. Leave **Prevent self-review** off for a one-person demo, so you can approve a run you started.
-5. If available, turn off **Allow administrators to bypass configured protection rules** to demonstrate the approval gate consistently.
-6. Save the settings.
+1. Open the `prod` environment.
+2. Set **Deployment branches and tags** to **Selected branches and tags**.
+3. Add a **Branch** rule named `main`.
+4. Enable **Required reviewers**.
+5. Select your GitHub login.
+6. Leave **Prevent self-review** off for this one-person demo.
+7. Disable **Allow administrators to bypass configured protection rules**.
+8. Save the configuration.
 
-Required reviewers are approvers, not a list of who may start a run. The workflow owner check separately governs who may start a deployment job. [GitHub reviewer and branch rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)
+The workflow condition controls who can start the deployment job.
+The environment rules control secret access and approval.
+GitHub releases environment secrets after its protection rules pass.
+See [GitHub deployment protection](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
 
-## Step 9: publish your adjusted code and confirm CI
+## 8. Publish the configuration
 
-Commit the identity and configuration changes to your repository:
+1. Open **Settings → Actions → General**.
+2. Enable Actions if necessary.
+3. Permit the pinned `actions/checkout` and `actions/setup-node` actions.
+4. Set default workflow permissions to read-only.
+5. Replace the example user names in the project READMEs with your user names.
+6. Replace the example endpoint URLs in those READMEs with your target URLs.
+7. Update the token expiration dates in the root README.
+8. Save the files.
+9. Commit the changes:
 
-```sh
-git add .github/workflows/deploy.yml workers/clock-api/wrangler.jsonc
-git commit -m "Configure personal Cloudflare deployment demo"
-git push -u origin main
-```
+   ```sh
+   git add .github/workflows/deploy.yml workers/clock-api/wrangler.jsonc README.md workers/clock-api/README.md
+   git commit -m "Configure personal Cloudflare demo"
+   ```
 
-If you did not change the Worker names, the Wrangler files will have no changes to commit. The workflow identity change is still required.
+10. Push to your repository:
 
-In GitHub:
+    ```sh
+    git push -u origin main
+    ```
 
-1. Open **Actions** and enable Actions if asked.
-2. Open the **Build Worker** run triggered by your push.
-3. Confirm `npm run check` passes for both source files.
-4. Confirm that no manual deployment started automatically.
-5. Confirm the repository's default branch is `main`. If necessary, choose `main` under **Settings → General → Default branch**.
+11. Confirm that GitHub uses `main` as the default branch.
+12. Open **Actions → Build Worker**.
+13. Confirm that the build succeeds.
 
-The deployment workflow must exist on the default branch for manual dispatch. Starting it requires repository Write access; as owner you already have that. [GitHub manual workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)
+The first push publishes the manual workflow.
+GitHub requires that workflow on the default branch before manual dispatch.
+A push starts build checks only.
 
-## Step 10: deploy the clock Worker to dev
+## 9. Deploy dev
 
-1. Open **Actions → Deploy Worker → Run workflow**.
-2. Select branch **main**, Worker **clock-api**, environment **dev**.
-3. Run the workflow.
-4. Confirm **Validate Worker folder**, **Validate selected Worker build**, and **Deploy selected Worker** pass.
-5. Open the clock dev URL followed by `/health`; verify its environment, entrypoint and commit.
-6. Open the clock dev URL followed by `/time` to see the current UTC timestamp.
+1. Open **Actions → Deploy Worker**.
+2. Select **Run workflow**.
+3. Select branch `main`.
+4. Select Worker `clock-api`.
+5. Select environment `dev`.
+6. Start the workflow.
+7. Confirm that both jobs succeed.
+8. Open your dev Worker's `/health` endpoint.
+9. Check the environment and entrypoint.
+10. Compare `commit` with the workflow commit.
+11. Open `/time`.
+12. Check the UTC timestamp.
 
-An expected clock health response is:
+Expected health response:
 
 ```json
 {
   "service": "clock-api",
   "environment": "dev",
   "entrypoint": "clock.dev.js",
-  "commit": "<the 40-character Git commit from this run>",
+  "commit": "<workflow commit>",
   "release": "1.0.0"
 }
 ```
 
-The prod source identifies `clock.prod.js`; `/time` also returns a `utc` field. These are JSON test APIs, so a JSON page in the browser is expected.
+A JSON response in the browser is correct.
+The `/time` response also contains `utc`.
 
-## Step 11: deploy the clock Worker to prod
+## 10. Deploy prod
 
-1. Start another manual run from **main**, Worker **clock-api**, environment **prod**.
-2. Confirm the validation job completes and the deployment job shows **Waiting**.
-3. On the workflow run page, select **Review deployments**, choose **prod**, then **Approve and deploy**.
-4. Confirm build validation and deployment pass.
-5. Open the clock prod URL and confirm `environment: prod`, `entrypoint: clock.prod.js`, and the run's commit SHA.
+1. Start another manual deployment from `main`.
+2. Select Worker `clock-api`.
+3. Select environment `prod`.
+4. Confirm that the deploy job waits for approval.
+5. Select **Review deployments**.
+6. Select `prod`.
+7. Select **Approve and deploy**.
+8. Confirm that the deployment succeeds.
+9. Open your prod Worker's `/health` endpoint.
+10. Check for `environment: prod` and `entrypoint: clock.prod.js`.
+11. Compare `commit` with the workflow commit.
 
-Record the run URLs and deployed commits. A successful dev run alone does not verify prod source, secrets or approval rules.
+Record both deployment run URLs.
 
-## Step 12: test feature branches and target isolation
+## 11. Check feature branches
 
-Create a feature branch containing a harmless README change:
+1. Create a branch:
 
-```sh
-git switch -c feature/demo-branch
-```
+   ```sh
+   git switch -c feature/demo-branch
+   ```
 
-Edit the README in your editor, then:
+2. Make a small README change.
+3. Commit the change:
 
-```sh
-git add README.md
-git commit -m "Exercise feature-branch deployment"
-git push -u origin feature/demo-branch
-```
+   ```sh
+   git add README.md
+   git commit -m "Check feature-branch deployment"
+   ```
 
-1. Wait for CI and confirm the push did not deploy anything.
-2. Run **clock-api/dev** manually with **feature/demo-branch** selected.
-3. Confirm its `/health` response reports the feature commit.
-4. Confirm the prod clock Worker still reports its earlier commit.
-5. Try **clock-api/prod** from that same feature branch. Its deployment must be skipped by the branch condition, or blocked by the environment gate if the workflow condition has been changed.
-6. Return to `main` with `git switch main` when finished. Future deployments use the commit selected at dispatch; branches share each Worker's dev target, rather than creating a new Worker per branch.
+4. Push the branch:
 
-In Cloudflare, open **Manage account → Account API tokens**, select each token and view its policy summary. Verify that each dev token selects only its intended dev Worker. Successful deployment proves the token can deploy its target; reviewing its scope checks which other resources it could access. A token-verification request or packaging dry-run alone does not establish resource isolation.
+   ```sh
+   git push -u origin feature/demo-branch
+   ```
 
-## Step 13: optionally add a dev-only collaborator
+5. Confirm that the build succeeds.
+6. Start a dev deployment from `feature/demo-branch`.
+7. Confirm that the dev endpoint reports the feature commit.
+8. Confirm that prod retains its previous commit.
+9. Request a prod deployment from the same feature branch.
+10. Confirm that GitHub skips the deployment.
+11. Return to `main`:
 
-Do this after the owner flow works and Cloudflare dev/prod credential isolation is confirmed.
+    ```sh
+    git switch main
+    ```
 
-1. Note the developer's GitHub login. You will add them after protecting the repository.
-2. Replace `jobs.validate.if` with the following, substituting their GitHub login for `YOUR_DEV_LOGIN`. Commit and push this workflow change to `main` while you are still the only operator:
+A later dev deployment replaces the same dev target.
+Each branch does not get a separate Worker.
+
+## 12. Add a dev-only collaborator, if required
+
+Complete this section before you invite the collaborator.
+
+1. Replace `jobs.validate.if` with the following expression.
+2. Replace `YOUR_DEV_LOGIN` with the collaborator's login.
 
 ```yaml
 if: >-
@@ -376,58 +502,88 @@ if: >-
   (github.actor == github.repository_owner || inputs.environment == 'dev')
 ```
 
-3. Keep the prod environment restricted to `main`, approved only by the owner, with administrator bypass disabled.
-4. Open **Settings → Branches → Add branch protection rule**. Enter `main`, enable **Require a pull request before merging**, require one approval, and enable **Require status checks to pass before merging** with the `validate` check. Dismiss stale approvals and leave force pushes and deletion disabled. Save the rule. Have the owner review deployment-related changes. A single-person setup can leave review requirements off until this stage.
-5. Open **Settings → Collaborators → Add people**, find the developer and send the invitation. A normal collaborator on a personal repository receives Write access; they do not need repository administration or Cloudflare account access.
-6. Ask them to accept the invitation and run dev from a feature branch, then attempt prod from `main`.
-7. Expected: dev succeeds; prod jobs are skipped for the collaborator. Record both run URLs to verify the behavior under their actual login.
+3. Commit the workflow change.
+4. Push it to `main`.
+5. Confirm that the build succeeds.
+6. Open **Settings → Branches**.
+7. Add a branch protection rule for `main`.
+8. Require a pull request and one approving review.
+9. Require the `validate` status check.
+10. Require the branch to be current before merge.
+11. Enable dismissal of stale approvals.
+12. Require conversation resolution.
+13. Leave force pushes and branch deletion disabled.
+14. Save the rule.
+15. Confirm that prod still requires owner approval and the `main` branch.
+16. Check that the dev token selects only dev targets.
+17. Open **Settings → Collaborators**.
+18. Invite the collaborator with Write access.
+19. Ask the collaborator to deploy dev from a feature branch.
+20. Ask the collaborator to request prod from `main`.
+21. Confirm that dev succeeds and GitHub skips prod jobs.
 
-The actor check in a branch's workflow can be edited by someone with Write access. The external prod environment rules and Cloudflare token scopes are the additional boundaries. Never put an account-wide prod-capable credential into a dev environment and describe the resulting setup as secure dev-only access.
+Do not give the collaborator repository administration access.
+A collaborator can change the workflow on a feature branch.
+The external prod environment rules and Cloudflare token scope provide additional protection.
 
-## Step 14: rotate credentials and finish the demo
+## 13. Add another Worker
 
-1. Create a replacement scoped token with the same intended target and permissions.
-2. Replace that target's GitHub environment secret.
-3. Run a manual deployment and manually verify its endpoint identity.
-4. Revoke the previous token.
-5. Repeat for the other targets when needed and record the expiry dates.
+1. Add `workers/<worker-name>` with a README, package, sources, and Wrangler configuration.
+2. Define `deploy` and `check` commands in its package.
+3. Make `check` package both environment configurations.
+4. Update the root lock file with `npm install --package-lock-only`.
+5. Add the folder to the workflow's Worker dropdown.
+6. Create the dev and prod Cloudflare targets.
+7. Add the dev target to the existing dev token.
+8. Add the prod target to the existing prod token.
+9. Add the project's URL variable to both shared GitHub environments.
+10. Use each environment's corresponding target URL.
+11. Repeat the deployment and verification procedures for the new project.
 
-Creating a replacement first avoids invalidating working credentials before GitHub is updated. Cloudflare's **Roll token** action invalidates the previous value: if it was reused in multiple environments, update every affected secret before relying on those environments again.
+Example URL variable: `fixture-cache` becomes `WORKER_URL_FIXTURE_CACHE`.
+The workflow replaces hyphens with underscores, uses uppercase, and adds `WORKER_URL_`.
+The existing prod approval rules apply to the new Worker.
 
-After the experiment, remove the demo tokens and Workers when you no longer need them. Store token values in neither Git history, Markdown instructions, screenshots, nor public Actions logs.
+## 14. Replace an expiring token
 
-## Troubleshooting
+1. Create a replacement token with the same two policies and selected targets.
+2. Replace `CLOUDFLARE_DEPLOYMENT_TOKEN` in the matching GitHub environment.
+3. Deploy that environment.
+4. Verify the endpoint.
+5. Revoke the old token.
+6. Record the replacement token's expiration date.
 
-| Symptom | Check |
-| --- | --- |
-| No Run workflow button | Workflow exists on the default branch, includes `workflow_dispatch`, and your GitHub account has Write access |
-| Validation and deployment are skipped | Replace the source usernames or use the owner-based expression; check selected branch and environment |
-| Worker-folder validation fails | Select `clock-api`; ensure `package.json` and `wrangler.jsonc` exist at that commit |
-| Failure before deployment steps | Inspect environment branch rules; dev should use No restriction, prod Branch `main` |
-| Empty account ID | Add repository secret `CLOUDFLARE_ACCOUNT_ID`; the workflow reads `secrets`, not `vars`, for this value |
-| Missing Worker URL | Add `WORKER_URL_CLOCK_API` to both shared environments; use the matching URL for each |
-| Empty deployment token | Create shared `dev` and `prod` environments; add `CLOUDFLARE_DEPLOYMENT_TOKEN` to each, and map it to runner variable `CLOUDFLARE_API_TOKEN` |
-| Cloudflare authentication error 10000 | Check token validity, target scope, account ID and failing API endpoint; see Step 6 compatibility notes |
-| Node engine error | Use Node.js 24 locally and leave the Node setup step in CI |
-| Prod waits indefinitely | Approve the job as the configured reviewer; turn off Prevent self-review for a solo demo |
-| Deployment succeeds but the endpoint looks wrong | Check the Worker URL, selected source, environment and commit manually |
-| Secrets appear to have no values in the UI | Expected: GitHub hides saved secret values; replace the secret if unsure |
+Cloudflare's **Roll token** action immediately invalidates the old value.
+Create a replacement first to keep the old credential valid during setup.
 
-## Completion checklist
+## Correct a setup failure
 
-- [ ] My repository remote points to my own GitHub account.
-- [ ] My workflow uses my identity or the owner-based check.
-- [ ] Both Cloudflare Workers exist with matching Wrangler names.
-- [ ] Two correctly named GitHub environments have the right tokens and URLs.
-- [ ] `CLOUDFLARE_ACCOUNT_ID` is a repository secret.
-- [ ] CI passes without a Cloudflare credential.
-- [ ] Pushes do not deploy automatically.
-- [ ] Clock dev and prod deploy successfully; prod waits for my approval.
-- [ ] A feature-branch dev deployment succeeds and leaves other targets unchanged.
-- [ ] Feature-branch prod deployment is prevented.
-- [ ] If collaborators are involved, dev tokens cannot authorize prod operations.
-- [ ] Expiry and rotation dates are recorded; no secret value was committed.
+- **No Run workflow button:** Publish `deploy.yml` on the default branch.
+- **GitHub skips all deployment jobs:** Check the actor condition and selected branch.
+- **Folder validation fails:** Check the selected folder and its package and Wrangler files.
+- **A deployment value is empty:** Check the secret names and `WORKER_URL_CLOCK_API` in the selected environment.
+- **Cloudflare error 10000:** Check the account, target selection, token expiration, and account-level metadata read policy.
+- **Prod does not wait:** Check its required reviewer rule and administrator bypass setting.
+- **Prod cannot get approval:** Disable prevention of self-review for a one-person demo.
+- **Wrong endpoint identity:** Compare the target URL, environment, entrypoint, and workflow commit.
+- **Node version fails:** Use Node.js 24.
 
-## Adding another demo Worker
+Do not replace a restricted dev token with an account-wide edit token.
+That change would permit prod changes from dev.
+If your policy prohibits shared metadata access, use separate Cloudflare accounts.
+Store each account ID as an environment secret in that case.
 
-Add `workers/<name>` with its own README, source, package and Wrangler configuration; update the npm lock file; add `<name>` to the predefined Worker dropdown; and create its dev/prod Cloudflare targets. Add the new dev target to `dev_workers_deployment_token` and the prod target to `prod_workers_deployment_token`. Reuse the shared `dev` and `prod` GitHub environments, secrets and prod protection. Provide a `check` script that dry-runs both environments and document endpoint verification. Create `WORKER_URL_<UPPERCASE_FOLDER_WITH_UNDERSCORES>` in each shared environment with that Worker's dev/prod URL. For example, `fixture-cache` uses `WORKER_URL_FIXTURE_CACHE`. The workflow automatically picks the correct key from the validated folder; no URL mapping edit is required. Follow Steps 10–12 again for the new project.
+## Completion checks
+
+- [ ] The Git remote points to my repository.
+- [ ] The workflow uses my GitHub identity.
+- [ ] Both Cloudflare targets exist.
+- [ ] The two tokens have the required policies and separate target lists.
+- [ ] GitHub contains shared `dev` and `prod` environments.
+- [ ] Each environment has its own token and clock URL.
+- [ ] The account ID is a secret.
+- [ ] Build checks pass.
+- [ ] Dev and approved prod deployments succeed.
+- [ ] GitHub skips feature-branch prod deployments.
+- [ ] Collaborator restrictions work, if a collaborator is present.
+- [ ] My records contain the token expiration dates.

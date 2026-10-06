@@ -1,99 +1,198 @@
 # Clock API Worker
 
-A public test API that reports its deployment identity and the current UTC time. This project demonstrates separate dev and prod implementations within one npm workspace.
+This test Worker returns its deployment identity and the current UTC time.
+It handles HTTP requests only.
+It has no database, scheduled task, queue consumer, or external API dependency.
 
-## Source and target mapping
+## Folder structure
 
-- `clock.dev.js` → Wrangler `dev` → Cloudflare Worker `cloudflare-workers-clock-dev`.
-- `clock.prod.js` → Wrangler `prod` → Cloudflare Worker `cloudflare-workers-clock-prod`.
+```text
+workers/clock-api/
+├── README.md
+├── clock.dev.js
+├── clock.prod.js
+├── package.json
+└── wrangler.jsonc
+```
 
-The entrypoints and target names are declared together in [wrangler.jsonc](./wrangler.jsonc). Wrangler's `main` property means the source entrypoint; it is independent of the Git branch named `main`. The project has no default top-level entrypoint, so deployment requires an environment selection. Each entrypoint accepts only its matching `ENVIRONMENT` binding.
+- `clock.dev.js` contains the dev implementation.
+- `clock.prod.js` contains the prod implementation.
+- `package.json` defines the commands for this npm workspace.
+- `wrangler.jsonc` selects the entrypoint, target, and runtime variables.
 
-## Request and response contract
+The two source files currently provide the same API.
+Each file checks its expected environment and returns its own entrypoint name.
+Future changes can make their behavior different.
 
-The Worker handles HTTP `fetch` events. There are no scheduled jobs or queue consumers.
+## Targets
 
-- `GET /` and `GET /health`: deployment identity as JSON.
-- `GET /time`: the same JSON plus `utc`, the current ISO 8601 UTC timestamp.
-- `HEAD` on those routes: response headers with an empty body.
-- Unknown routes: HTTP 404.
-- Other methods: HTTP 405 with `Allow: GET, HEAD`.
-- Missing or wrong `ENVIRONMENT`: HTTP 503 on valid routes.
+```text
+Wrangler dev  → clock.dev.js  → cloudflare-workers-clock-dev
+Wrangler prod → clock.prod.js → cloudflare-workers-clock-prod
+```
 
-Successful responses have `Cache-Control: no-store`. The API has no external origin, cache storage, database, authentication requirement or runtime secrets. The response contains only explicit public fields.
+Wrangler's `main` property identifies the source entrypoint.
+The Git branch selection is separate.
+The configuration requires an explicit `--env dev` or `--env prod`.
 
-Example dev response:
+Public health endpoints:
+
+- [Dev](https://cloudflare-workers-clock-dev.n-liu.workers.dev/health)
+- [Prod](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
+
+These endpoints belong to the POC account.
+A copy of this project uses the new account's `workers.dev` subdomain.
+
+## API behavior
+
+- `GET /` and `GET /health` return deployment identity.
+- `GET /time` also returns the current UTC timestamp.
+- `HEAD` on these paths returns headers without a response body.
+- Other HTTP methods return status 405 and header `Allow: GET, HEAD`.
+- An unknown path with `GET` or `HEAD` returns status 404.
+- A valid path returns status 503 if `ENVIRONMENT` is missing or does not match the source.
+
+Responses use `Cache-Control: no-store`.
+The API requires no authentication.
+Its response fields contain no deployment credentials.
+
+Example response from the dev `/time` endpoint:
 
 ```json
 {
   "service": "clock-api",
   "environment": "dev",
   "entrypoint": "clock.dev.js",
-  "commit": "<Git commit from the deployment run>",
+  "commit": "<deployment commit>",
   "release": "1.0.0",
   "utc": "2026-10-06T00:00:00.000Z"
 }
 ```
 
-The prod response identifies `clock.prod.js`. Both sources currently offer the same functional API; their source identity and binding checks differ. Changes to either source must be tested independently.
+The `utc` value changes with each request.
+The prod response identifies `clock.prod.js`.
 
 ## Configuration
 
-- `ENVIRONMENT`: `dev` or `prod`, specified separately in Wrangler configuration.
-- `GIT_SHA`: defaults to `local`; GitHub deployment overrides it with the run's commit.
-- `CLOUDFLARE_ACCOUNT_ID`: deployment account, supplied by the GitHub repository secret of the same name.
-- `CLOUDFLARE_DEPLOYMENT_TOKEN`: GitHub environment secret containing that environment's Cloudflare credential. The workflow exposes it to Wrangler as runner variable `CLOUDFLARE_API_TOKEN`; neither is a Worker runtime binding.
-- `WORKER_URL_CLOCK_API`: GitHub variable in both shared environments, holding the matching public clock target URL. The workflow derives this key from `clock-api`, uses it for the deployment link, and checks its presence as runner variable `WORKER_URL`. It does not configure the Cloudflare destination.
+### Worker runtime variables
 
-GitHub environments are shared `dev` and `prod`. Dev supports branch testing. Prod requires `main`, the allowed owner actor and owner approval, with administrator bypass disabled. Separate Cloudflare deployment tokens must select only the matching Worker targets. Each token also grants account Workers Metadata Read-only so Wrangler can read the `workers.dev` subdomain. This permits metadata visibility across the account without granting script-content or edit access to the opposite target. All future prod projects reuse the same GitHub approval rules; their targets must also be added to the prod token's selected resources.
+- `ENVIRONMENT`: `dev` or `prod`, from the selected Wrangler environment.
+- `GIT_SHA`: `local` by default, or the workflow commit during deployment.
 
-## Local development and verification
+The deploy command replaces the default `GIT_SHA` value.
+The Worker returns that value as `commit`.
 
-Run from the repository root with Node.js 24:
+### GitHub deployment configuration
 
-```sh
-npm ci
-npm run check --workspace workers/clock-api
-npm run dev --workspace workers/clock-api
-```
+- Repository secret `CLOUDFLARE_ACCOUNT_ID` identifies the Cloudflare account.
+- Environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN` supplies the selected environment's credential.
+- Environment variable `WORKER_URL_CLOCK_API` supplies the selected environment's clock URL.
 
-For the prod source locally:
+Both shared environments contain the same secret and variable names.
+Their token and URL values differ.
 
-```sh
-cd workers/clock-api
-npx --no-install wrangler dev --env prod
-```
+The workflow passes the token to Wrangler as `CLOUDFLARE_API_TOKEN`.
+It derives `WORKER_URL_CLOCK_API` from the folder name `clock-api`.
+The URL controls the GitHub deployment link.
+The Wrangler target name controls the deployment destination.
 
-`check` dry-runs dev and prod packaging without publishing. This minimal POC does not include unit tests or automated endpoint verification; inspect `/health` and `/time` manually after deployment.
+The dev token permits edits to the dev target.
+The prod token permits edits to the prod target.
+Both tokens have account-level Workers Metadata Read-only for the `workers.dev` lookup.
 
-## Deployment and verification
+Prod uses the shared `prod` approval rules and permits the `main` branch only.
+The [repository instructions](../../README.md) describe the current user access rules.
 
-1. Open GitHub **Actions → Deploy Worker → Run workflow**.
-2. Select the desired branch for dev; choose `main` for prod.
-3. Select Worker `clock-api`, then `dev` or `prod`.
-4. Start the run and approve the prod environment when prompted.
-5. Confirm build validation and deployment pass.
-6. Check `/health`: `entrypoint` must be `clock.dev.js` for dev or `clock.prod.js` for prod, and `commit` must equal the run's SHA.
+## Check the source files
 
-Public test endpoints:
+Use Node.js 24.
 
-- Dev: https://cloudflare-workers-clock-dev.n-liu.workers.dev/health
-- Prod: https://cloudflare-workers-clock-prod.n-liu.workers.dev/health
+1. Open a terminal in the repository root.
+2. Install dependencies:
 
-Use `/time` to verify the clock response as well. Deploying one target should leave the other target's commit and entrypoint unchanged.
+   ```sh
+   npm ci
+   ```
 
-## Troubleshooting and rollback
+3. Check both clock configurations:
 
-- HTTP 503: check that the selected source matches the `ENVIRONMENT` binding.
-- Missing entrypoint during deployment: supply an explicit Wrangler environment.
-- Authentication failure: check the selected GitHub environment's token, expiry, scope and account ID.
-- Wrong response identity: check the selected source, destination URL and deployed commit.
-- Rollback: an authorized Cloudflare operator can open the target Worker's **Deployments** and restore a known-good version. Verify its identity afterward. A dashboard rollback is a separate operation from the GitHub approval workflow.
+   ```sh
+   npm run check --workspace workers/clock-api
+   ```
 
-## References and ownership
+This command packages both entrypoints without deployment.
+It does not verify endpoint behavior or Cloudflare permissions.
 
-- Owner: `sdzfg347` (proof-of-concept repository owner).
-- ClickUp: no task link has been supplied for this test Worker. Add the actual task ID/URL if the demo is associated with a task.
-- [Deployment workflow](../../.github/workflows/deploy.yml).
-- [CI workflow](../../.github/workflows/build.yml).
-- [Cloudflare Wrangler environment configuration](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys).
+## Start a local server
+
+1. Start the dev source from the repository root:
+
+   ```sh
+   npm run dev --workspace workers/clock-api
+   ```
+
+2. Open the local URL that Wrangler displays.
+3. Add `/health` or `/time` to that URL.
+4. Check the response.
+5. Stop the server with **Ctrl+C**.
+
+To inspect the prod source:
+
+1. Open a terminal in `workers/clock-api`.
+2. Start the prod source:
+
+   ```sh
+   npx --no-install wrangler dev --env prod
+   ```
+
+3. Check the local `/health` and `/time` responses.
+4. Stop the server with **Ctrl+C**.
+
+A local response normally reports `commit: local`.
+
+## Deploy and verify
+
+1. Open GitHub **Actions → Deploy Worker**.
+2. Select **Run workflow**.
+3. Select a branch for dev, or `main` for prod.
+4. Select Worker `clock-api`.
+5. Select the environment.
+6. Start the workflow.
+7. For prod, approve the deployment as the configured reviewer.
+8. Confirm that the deployment job succeeds.
+9. Open the selected target's `/health` endpoint.
+10. Check the environment and entrypoint.
+11. Compare the response commit with the workflow commit.
+12. Open `/time`.
+13. Check the UTC timestamp.
+14. Confirm that the other target retains its previous deployment.
+
+## Correct a failure
+
+- **Status 503:** Check `ENVIRONMENT` and the selected source file.
+- **Missing entrypoint:** Supply `--env dev` or `--env prod`.
+- **Empty deployment value:** Check the repository secret and the selected environment's secret and URL variable.
+- **Cloudflare error 10000:** Check the account, token expiry, selected targets, and required read permission.
+- **Wrong response identity:** Check the target URL and workflow commit.
+- **Prod job waits:** Approve the deployment as the configured reviewer.
+
+To restore an earlier deployment:
+
+1. Open the target in the Cloudflare dashboard.
+2. Open **Deployments**.
+3. Select a known working version.
+4. Restore that version.
+5. Verify the endpoint identity.
+
+A dashboard restore requires Cloudflare access.
+The GitHub approval rule does not control dashboard operations.
+
+## Owner and references
+
+- Owner: `sdzfg347`.
+- ClickUp reference: none supplied for this test Worker.
+- [Build workflow](../../.github/workflows/build.yml)
+- [Deployment workflow](../../.github/workflows/deploy.yml)
+- [Wrangler configuration](wrangler.jsonc)
+
+Add the actual ClickUp task URL when a task applies.
