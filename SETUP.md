@@ -8,7 +8,7 @@ The target model is:
 - Production deployments can run only from `main`.
 - Production deployments require approval from a release team.
 - The same workflow supports multiple Worker projects.
-- Each Worker has separate dev and prod credentials.
+- All Workers share one dev credential and a separate prod credential, each scoped to an explicit list of matching Cloudflare targets.
 - The manual Worker selector uses a predefined dropdown and validates the selected folder before deployment.
 - No Cloudflare token is committed to Git or printed in logs.
 
@@ -89,26 +89,21 @@ GitHub recommends explicit workflow permissions and full-length SHA pinning for 
 
 ## 3. Configure GitHub environments
 
-Create two environments for every Worker:
+Create two shared environments for the entire repository:
 
 ```text
-<worker>-dev
-<worker>-prod
+dev
+prod
 ```
 
-For example:
-
-```text
-clock-api-dev
-clock-api-prod
-```
+Every Worker deployment uses one of these environments. Configure the common production approval policy once on `prod`.
 
 ### Dev environment
 
 Configure the dev environment with:
 
 - No deployment branch restriction, so feature branches can be tested.
-- A `CLOUDFLARE_API_TOKEN` environment secret.
+- A `CLOUDFLARE_DEPLOYMENT_TOKEN` environment secret.
 - A `WORKER_URL` environment variable for the deployment link.
 
 The workflow itself still allows dev only for members of the development group. Repository Write permission is the normal control for who can dispatch the workflow.
@@ -120,7 +115,8 @@ Configure the prod environment with:
 - Deployment branch policy: selected branch `main`.
 - Required reviewer: the `leads` team.
 - `Prevent self-review` enabled if the person who starts a deployment must not approve their own deployment.
-- A separate `CLOUDFLARE_API_TOKEN` environment secret.
+- Administrator bypass disabled so the approval gate also applies to repository administrators.
+- A separate `CLOUDFLARE_DEPLOYMENT_TOKEN` environment secret.
 - A `WORKER_URL` environment variable for the deployment link.
 
 Environment secrets are unavailable to a job until its protection rules pass. This is the key control that keeps the production Cloudflare token away from an unapproved run. GitHub supports users or teams as required reviewers: [GitHub deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
@@ -135,19 +131,21 @@ Create one repository secret under **Settings → Secrets and variables → Acti
 CLOUDFLARE_ACCOUNT_ID=<company Cloudflare account ID>
 ```
 
-Create these environment values for every Worker/environment pair:
+Create these values once in each shared GitHub environment:
 
 ```text
 Variable: WORKER_URL
-Secret:   CLOUDFLARE_API_TOKEN
+Secret:   CLOUDFLARE_DEPLOYMENT_TOKEN
 ```
 
 Example mapping:
 
 | GitHub environment | `WORKER_URL` | Token scope |
 | --- | --- | --- |
-| `clock-api-dev` | `https://cloudflare-workers-clock-dev.<account>.workers.dev` | Editor on the clock dev Worker |
-| `clock-api-prod` | `https://cloudflare-workers-clock-prod.<account>.workers.dev` | Editor on the clock prod Worker |
+| `dev` | `https://cloudflare-workers-clock-dev.<account>.workers.dev` | Editor on the selected dev Worker list |
+| `prod` | `https://cloudflare-workers-clock-prod.<account>.workers.dev` | Editor on the selected prod Worker list |
+
+The single `WORKER_URL` works for the current clock-only POC. For several projects, use per-worker URL variables or a reviewed mapping and update the workflow's deployment link selection to use the validated Worker name. Sharing approval rules does not imply sharing an endpoint.
 
 GitHub never displays a secret value after it is saved. Seeing only the secret name and lock icon is expected. To change it, overwrite it with a newly generated value.
 
@@ -179,17 +177,21 @@ Use account-owned API tokens for CI/CD rather than a personal user token. Cloudf
 
 ### Steady-state minimum target
 
-Create one account-owned token per Worker target, or at minimum one token per environment boundary:
+Create two account-owned tokens, one per environment boundary:
 
 ```text
-clock-api-dev token  -> Editor on cloudflare-workers-clock-dev
-clock-api-prod token -> Editor on cloudflare-workers-clock-prod
+dev_workers_deployment_token  -> Editor on the selected dev Workers
+prod_workers_deployment_token -> Editor on the selected prod Workers
 ```
+
+In **Manage account → Account API tokens → Create Token**, set the name, choose **Start from scratch**, choose **Specified Workers**, select all intended targets for that environment, and select **Individual Workers → Editor**. Close the editor, set an expiry, review the exact resource list, then create the token. Copy its one-time value into the matching GitHub environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN`. Repeat for the opposite environment with a different value.
+
+The token name is descriptive. Resource selection enforces access. Do not choose account-wide Workers Editor for dev when dev and prod share an account. Future Workers are not added automatically: create their targets first, then update the matching token's selected Worker list.
 
 The token needs:
 
 - Cloudflare Workers `Editor` role.
-- Scope limited to the selected individual Worker.
+- Scope limited to the selected individual Workers in one environment.
 - An expiry date and documented rotation owner.
 
 It does not need:
@@ -217,7 +219,7 @@ for the affected zone. Keep that permission out of tokens that only deploy to `w
 
 If CI must create Workers, use a short-lived product-level Workers Admin token only for bootstrap. After the Workers exist:
 
-1. Create the per-Worker Editor tokens.
+1. Create the dev and prod Editor tokens with separate selected Worker lists.
 2. Replace the GitHub environment secrets.
 3. Revoke the bootstrap Admin token.
 4. Confirm a normal deployment works with the scoped token.
@@ -235,8 +237,10 @@ npx wrangler whoami
 
 CLOUDFLARE_API_TOKEN="$TOKEN" \
 CLOUDFLARE_ACCOUNT_ID="$ACCOUNT_ID" \
-npx wrangler deploy --config workers/<worker>/wrangler.jsonc --env dev --dry-run
+npx --no-install wrangler deploy --config workers/<worker>/wrangler.jsonc --env dev --dry-run
 ```
+
+A dry-run only checks packaging; it does not authenticate a real deployment. Confirm an actual dev deployment and an approved prod deployment, then verify that the dev token is denied access to prod resources. `whoami` may require broader identity-listing access than deployment; do not broaden the deployment token merely to make that command pass.
 
 If the current Wrangler returns Cloudflare error `10000` for a per-Worker token, treat that as a permission compatibility issue. Test the current Wrangler release and inspect the exact endpoint permissions before broadening the token. A temporary account-level `Edit Cloudflare Workers` token is a controlled fallback for a proof of concept, not the preferred company steady state.
 
@@ -299,13 +303,13 @@ The validation job should reject path traversal and non-standard folder names be
     echo "worker=$WORKER" >> "$GITHUB_OUTPUT"
 ```
 
-The deployment job should use `needs.validate.outputs.worker` in its `environment.name` and workspace commands. This validates the input before the matching environment secret is made available.
+The deployment job uses `needs.validate.outputs.worker` in workspace commands and `inputs.environment` as its shared GitHub environment name. Folder validation runs before the deployment job receives its environment credential.
 
 The job should reference the selected environment:
 
 ```yaml
 environment:
-  name: ${{ inputs.worker }}-${{ inputs.environment }}
+  name: ${{ inputs.environment }}
   url: ${{ vars.WORKER_URL }}
 ```
 
@@ -314,8 +318,10 @@ The deployment step should receive only the selected environment’s values:
 ```yaml
 env:
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOYMENT_TOKEN }}
 ```
+
+`CLOUDFLARE_DEPLOYMENT_TOKEN` is the GitHub secret name; `CLOUDFLARE_API_TOKEN` is Wrangler's required runner variable. Rename the secret reference, not the variable Wrangler reads.
 
 Keep these controls in the workflow:
 
@@ -341,9 +347,9 @@ Use this order for a new company repository:
 4. Protect `main` with pull-request review and the CI validation check.
 5. Create the monorepo root and one Worker folder.
 6. Create the dev and prod Worker targets in Cloudflare.
-7. Create per-Worker account-owned Editor tokens.
-8. Create `<worker>-dev` and `<worker>-prod` GitHub environments.
-9. Add the matching token and Worker URL to each environment.
+7. Create dev/prod account-owned Editor tokens scoped to separate selected target lists.
+8. Create shared `dev` and `prod` GitHub environments.
+9. Add `CLOUDFLARE_DEPLOYMENT_TOKEN` and the appropriate Worker URL variable to each environment; add repository secret `CLOUDFLARE_ACCOUNT_ID`.
 10. Add the `leads` team as a required reviewer on prod.
 11. Set prod’s deployment branch policy to `main`.
 12. Leave dev without a deployment branch policy for branch testing.
@@ -362,10 +368,10 @@ For every future Worker:
 2. Add dev and prod Worker names to its Wrangler configuration.
 3. Use a lowercase kebab-case folder name and add it to the workflow’s `worker` choice options.
 4. Create the two Cloudflare Worker targets.
-5. Create separate dev and prod deployment tokens.
-6. Create GitHub environments `<worker-name>-dev` and `<worker-name>-prod`.
-7. Store the Worker-specific token and URL in those environments.
-8. Add the prod environment reviewer and `main` branch policy.
+5. Add the new dev target to the existing dev token policy, and the prod target to the existing prod token policy.
+6. Reuse shared GitHub environments `dev` and `prod`; no new environment is needed.
+7. Add per-worker URL variables or extend a reviewed URL mapping, and select the correct deployment link in the workflow.
+8. Confirm the shared prod reviewer, `main` policy and administrator-bypass restriction remain configured.
 9. Dry-run deployment for both environments.
 10. Deploy dev from a feature branch.
 11. Deploy prod from `main` after review.
@@ -391,7 +397,7 @@ If a token is exposed, revoke it immediately. Do not rely on GitHub masking as a
 | GitHub production approver | Read access to the repository plus membership in the prod required-reviewer team |
 | GitHub platform administrator | Repository Admin and organization environment-management authority |
 | GitHub Actions token | `contents: read` |
-| Cloudflare steady-state deploy token | Account-owned Workers Editor scoped to one existing Worker |
+| Cloudflare steady-state deploy token | Account-owned Individual Workers Editor scoped to an explicit list of existing dev or prod Workers |
 | Cloudflare Worker creation | Product-level Workers Admin, only during controlled bootstrap |
 | Cloudflare route/custom-domain changes | Worker Editor plus Zone Workers Routes Write |
 | Cloudflare resource creation | The specific product permission for the resource; not needed merely to deploy an existing binding |

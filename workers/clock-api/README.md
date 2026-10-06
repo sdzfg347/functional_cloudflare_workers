@@ -42,10 +42,10 @@ The prod response identifies `clock.prod.js`. Both sources currently offer the s
 - `ENVIRONMENT`: `dev` or `prod`, specified separately in Wrangler configuration.
 - `GIT_SHA`: defaults to `local`; GitHub deployment overrides it with the run's commit.
 - `CLOUDFLARE_ACCOUNT_ID`: deployment account, supplied by the GitHub repository secret of the same name.
-- `CLOUDFLARE_API_TOKEN`: deployment credential, supplied by the selected GitHub environment secret; never returned by the Worker.
+- `CLOUDFLARE_DEPLOYMENT_TOKEN`: GitHub environment secret containing that environment's Cloudflare credential. The workflow exposes it to Wrangler as runner variable `CLOUDFLARE_API_TOKEN`; neither is a Worker runtime binding.
 - `WORKER_URL`: public target URL displayed in GitHub's deployment record; it does not configure the Cloudflare destination.
 
-GitHub environments are `clock-api-dev` and `clock-api-prod`. Dev supports branch testing. Prod requires `main`, the allowed owner actor and production approval. The existing proof-of-concept credential is account-scoped; distinct GitHub environments alone do not narrow that Cloudflare permission.
+GitHub environments are shared `dev` and `prod`. Dev supports branch testing. Prod requires `main`, the allowed owner actor and owner approval, with administrator bypass disabled. Separate Cloudflare deployment tokens must select only the matching Worker targets. All future prod projects reuse the same GitHub approval rules; their targets must also be added to the prod token's selected resources.
 
 ## Local development and verification
 
