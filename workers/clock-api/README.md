@@ -41,7 +41,7 @@ The prod response identifies `clock.prod.js`. Both sources currently offer the s
 
 - `ENVIRONMENT`: `dev` or `prod`, specified separately in Wrangler configuration.
 - `GIT_SHA`: defaults to `local`; GitHub deployment overrides it with the run's commit.
-- `CLOUDFLARE_ACCOUNT_ID`: deployment account, supplied by GitHub variables.
+- `CLOUDFLARE_ACCOUNT_ID`: deployment account, supplied by the GitHub repository secret of the same name.
 - `CLOUDFLARE_API_TOKEN`: deployment credential, supplied by the selected GitHub environment secret; never returned by the Worker.
 - `WORKER_URL`: public target URL displayed in GitHub's deployment record; it does not configure the Cloudflare destination.
 

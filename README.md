@@ -39,7 +39,9 @@ The commit captured when the run starts is checked out explicitly and reported b
 
 ## Configuration
 
-GitHub environments `clock-api-dev` and `clock-api-prod` contain a `CLOUDFLARE_API_TOKEN` secret and a `WORKER_URL` variable. `WORKER_URL` is displayed as the deployment link in GitHub; it does not select the Cloudflare target. The shared account ID is stored as the repository variable `CLOUDFLARE_ACCOUNT_ID`.
+GitHub environments `clock-api-dev` and `clock-api-prod` contain a `CLOUDFLARE_API_TOKEN` secret and a `WORKER_URL` variable. `WORKER_URL` is displayed as the deployment link in GitHub; it does not select the Cloudflare target. The shared account ID is stored as the repository secret `CLOUDFLARE_ACCOUNT_ID`, and the deployment step reads it through `secrets.CLOUDFLARE_ACCOUNT_ID`.
+
+Before deploying an older feature branch, merge or rebase the latest `main` so that branch's `deploy.yml` also reads the account ID from secrets.
 
 Worker targets and runtime variables are defined in each project's `wrangler.jsonc`. The deployment step overrides `GIT_SHA` with the workflow's commit SHA. Only explicit non-sensitive fields are returned. Deployment concurrency is scoped to the Worker/environment pair.
 

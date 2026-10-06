@@ -202,20 +202,20 @@ If your scoped token fails:
 3. Test the supported Wrangler version and retry the scoped credential.
 4. If a one-person functional demo is still blocked, create a temporary account-owned token using the documented **Edit Cloudflare Workers** CI template. Follow the same token-creation steps, selecting that template instead of the custom individual-Worker policy. Restrict it to your isolated demo account, review its additional permissions, and set a short expiry. In Step 7, store it in the affected environment secret. This is a compatibility fallback, not the minimum-permission path. [Cloudflare GitHub Actions authentication](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)
 
-**Before inviting a dev-only collaborator, ensure the dev tokens cannot modify prod Workers.** An account-wide token used by dev can authorize prod changes directly through Cloudflare, even if the GitHub prod environment requires approval. Separate secret names or duplicate tokens with the same broad scope do not fix that. If scoped deployment is unavailable, use separate dev/prod Cloudflare accounts and environment-level account-ID variables, or keep the broad-token fallback limited to a solo experiment.
+**Before inviting a dev-only collaborator, ensure the dev tokens cannot modify prod Workers.** An account-wide token used by dev can authorize prod changes directly through Cloudflare, even if the GitHub prod environment requires approval. Separate secret names or duplicate tokens with the same broad scope do not fix that. If scoped deployment is unavailable, use separate dev/prod Cloudflare accounts and environment-level account-ID secrets, or keep the broad-token fallback limited to a solo experiment.
 
-If you use separate accounts, create the dev targets in the dev account and the prod targets in the prod account. In Step 7, add `CLOUDFLARE_ACCOUNT_ID` as an **environment variable** in each GitHub environment, with the corresponding account's ID, instead of using one shared repository value. Use tokens and Worker URLs from that same account. The existing `vars.CLOUDFLARE_ACCOUNT_ID` expression will read the selected environment's value.
+If you use separate accounts, create the dev targets in the dev account and the prod targets in the prod account. In Step 7, add `CLOUDFLARE_ACCOUNT_ID` as an **environment secret** in each GitHub environment, with the corresponding account's ID, instead of using one shared repository value. Use tokens and Worker URLs from that same account. The existing `secrets.CLOUDFLARE_ACCOUNT_ID` expression will read the selected environment's secret.
 
-## Step 7: create GitHub variables and environments
+## Step 7: create GitHub secrets, variables and environments
 
-Open your repository's **Settings → Secrets and variables → Actions → Variables**. Select **New repository variable**, enter the following, and select **Add variable**:
+Open your repository's **Settings → Secrets and variables → Actions → Secrets**. Select **New repository secret**, enter the following, and select **Add secret**:
 
 ```text
 Name:  CLOUDFLARE_ACCOUNT_ID
 Value: your Cloudflare Account ID
 ```
 
-The YAML reads `vars.CLOUDFLARE_ACCOUNT_ID`, so putting this only in Secrets will not satisfy the existing workflow.
+The YAML reads `secrets.CLOUDFLARE_ACCOUNT_ID`. Store this value as a secret, not a repository variable. An account ID identifies the destination rather than granting access, but this demo stores it as a secret so its value is hidden in the GitHub settings and masked in Actions logs.
 
 Then open **Settings → Environments**. Select **New environment**, enter a name, and select **Configure environment**. Repeat for both exact names:
 
@@ -386,7 +386,7 @@ After the experiment, remove the demo tokens and Workers when you no longer need
 | Validation and deployment are skipped | Replace the source usernames or use the owner-based expression; check selected branch and environment |
 | Worker-folder validation fails | Select `clock-api`; ensure `package.json` and `wrangler.jsonc` exist at that commit |
 | Failure before deployment steps | Inspect environment branch rules; dev should use No restriction, prod Branch `main` |
-| Empty account ID | Add repository variable `CLOUDFLARE_ACCOUNT_ID`; the workflow reads `vars`, not `secrets`, for this value |
+| Empty account ID | Add repository secret `CLOUDFLARE_ACCOUNT_ID`; the workflow reads `secrets`, not `vars`, for this value |
 | Empty deployment token | Pre-create the exact `<folder>-<environment>` GitHub environment and its `CLOUDFLARE_API_TOKEN` secret |
 | Cloudflare authentication error 10000 | Check token validity, target scope, account ID and failing API endpoint; see Step 6 compatibility notes |
 | Node engine error | Use Node.js 24 locally and leave the Node setup step in CI |
@@ -400,7 +400,7 @@ After the experiment, remove the demo tokens and Workers when you no longer need
 - [ ] My workflow uses my identity or the owner-based check.
 - [ ] Both Cloudflare Workers exist with matching Wrangler names.
 - [ ] Two correctly named GitHub environments have the right tokens and URLs.
-- [ ] `CLOUDFLARE_ACCOUNT_ID` is a repository variable.
+- [ ] `CLOUDFLARE_ACCOUNT_ID` is a repository secret.
 - [ ] CI passes without a Cloudflare credential.
 - [ ] Pushes do not deploy automatically.
 - [ ] Clock dev and prod deploy successfully; prod waits for my approval.

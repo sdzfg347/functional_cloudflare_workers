@@ -129,7 +129,7 @@ For private repositories, verify that the organization plan supports environment
 
 ## 4. Store GitHub variables and secrets
 
-Create one repository variable:
+Create one repository secret under **Settings → Secrets and variables → Actions → Secrets → New repository secret**:
 
 ```text
 CLOUDFLARE_ACCOUNT_ID=<company Cloudflare account ID>
@@ -313,7 +313,7 @@ The deployment step should receive only the selected environment’s values:
 
 ```yaml
 env:
-  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```
 
