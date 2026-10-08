@@ -35,17 +35,19 @@ Wrangler's `main` property identifies the source entrypoint.
 The Git branch selection is separate.
 The configuration requires an explicit `--env dev` or `--env prod`.
 
-Public health endpoints:
+Health addresses:
 
 - [Dev](https://cloudflare-workers-clock-dev.n-liu.workers.dev/health)
-- [Prod](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
+- [Prod — disabled for testing](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
 
 These endpoints belong to the POC account.
 A copy of this project uses the new account's `workers.dev` subdomain.
 
-The configuration enables the normal address with `workers_dev: true`.
-It disables version-specific URLs with `preview_urls: false`.
-These settings do not disable the normal `/health` or `/time` endpoints.
+The top-level `workers_dev: true` setting enables the dev address.
+The prod override sets `workers_dev: false` for the current URL test.
+`preview_urls: false` disables version-specific URLs in both environments.
+The prod public `/health` and `/time` addresses do not serve the Worker during this test.
+Local development still permits both source files.
 
 ## API behavior
 
@@ -156,6 +158,10 @@ A local response normally reports `commit: local`.
 
 ## Deploy and verify
 
+Prod currently has no enabled public address.
+For prod, verify the successful Actions run and the target's Cloudflare **Deployments** page.
+Use the HTTP verification steps below for dev, or after you restore the prod address.
+
 1. Open GitHub **Actions → Deploy Worker**.
 2. Select **Run workflow**.
 3. Select a branch for dev, or `main` for prod.
@@ -173,6 +179,7 @@ A local response normally reports `commit: local`.
 
 ## Correct a failure
 
+- **Prod URL does not respond:** This is expected while `env.prod.workers_dev` is `false`.
 - **Status 503:** Check `ENVIRONMENT` and the selected source file.
 - **Missing entrypoint:** Supply `--env dev` or `--env prod`.
 - **Empty deployment value:** Check the repository secret and the selected environment's secret and URL variable.
@@ -190,6 +197,8 @@ To restore an earlier deployment:
 
 A dashboard restore requires Cloudflare access.
 The GitHub approval rule does not control dashboard operations.
+
+To restore the prod address, set `env.prod.workers_dev` to `true` and deploy prod after approval.
 
 ## Owner and references
 

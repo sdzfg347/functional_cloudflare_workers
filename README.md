@@ -167,9 +167,16 @@ Both Worker configurations contain these independent settings:
 ```json
 {
   "workers_dev": true,
-  "preview_urls": false
+  "preview_urls": false,
+  "env": {
+    "prod": { "workers_dev": false }
+  }
 }
 ```
+
+The prod override disables both prod `workers.dev` addresses for the current test.
+Dev inherits the enabled top-level setting.
+Version-specific URLs remain disabled in both environments.
 
 `workers_dev: true` enables the normal address for the deployed Worker.
 Cloudflare combines the target name with the account subdomain:
@@ -193,6 +200,23 @@ An HTTP endpoint check requires an enabled route or domain.
 Without one, inspect the version in Cloudflare's **Deployments** page.
 
 See [workers.dev routing](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/) and [version URLs](https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/).
+
+### Current prod URL test
+
+Both prod Workers still deploy by account ID and Worker name.
+Their normal public addresses remain disabled after deployment.
+The stored GitHub URL variables remain present, but those prod links do not serve the Worker.
+
+For prod verification, inspect the successful Actions run and the target's Cloudflare **Deployments** page.
+Do not expect a prod health response during this test.
+Dev health endpoints remain available.
+
+To restore a prod address:
+
+1. Set `env.prod.workers_dev` to `true` in that project's `wrangler.jsonc`.
+2. Commit the change.
+3. Deploy that project to prod after approval.
+4. Verify its health endpoint.
 
 ## Access rules
 
@@ -267,19 +291,20 @@ This gives the branch the current workflow and variable names.
 7. Select **Run workflow** to start the run.
 8. For prod, approve the deployment as the configured reviewer.
 9. Confirm that the deployment job succeeds.
-10. Open the selected target's health endpoint.
+10. For an enabled address, open the selected target's health endpoint.
 11. Compare its `commit` value with the workflow commit.
 12. Check its `environment` and `entrypoint` values.
 
 Use `main` for prod.
+During the current URL test, verify prod through Actions and Cloudflare instead of the HTTP endpoint.
 
 - [Clock dev](https://cloudflare-workers-clock-dev.n-liu.workers.dev/health)
-- [Clock prod](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
+- [Clock prod — disabled for testing](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
 - [Health dev](https://cloudflare-workers-poc-dev.n-liu.workers.dev/health)
-- [Health prod](https://cloudflare-workers-poc-prod.n-liu.workers.dev/health)
+- [Health prod — disabled for testing](https://cloudflare-workers-poc-prod.n-liu.workers.dev/health)
 
-These URLs return JSON.
-They are public test APIs.
+The enabled dev URLs return JSON.
+The prod URLs do not serve the Worker during this test.
 The independent health Worker also returns `status: ok`.
 It does not check the clock Worker or external systems.
 

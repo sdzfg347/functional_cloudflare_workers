@@ -184,6 +184,10 @@ It authenticates to Cloudflare with the separate deployment token.
 
 ## 5. Create the Cloudflare targets
 
+The copied prod configuration disables `workers.dev` addresses for the current POC test.
+For this guide's public endpoint checks, set `env.prod.workers_dev` to `true` in your copies.
+Alternatively, use an approved company route and verify that address.
+
 1. Select the company Cloudflare account.
 2. Copy its Account ID.
 3. Open **Workers & Pages**.

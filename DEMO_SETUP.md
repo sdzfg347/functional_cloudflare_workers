@@ -230,6 +230,10 @@ health-api/prod → health.prod.js → cloudflare-workers-poc-prod
 If you choose different target names, change `env.dev.name` and `env.prod.name` in the corresponding project's `wrangler.jsonc`.
 Keep the entrypoint names.
 
+The source repository currently disables prod `workers.dev` addresses for a deployment test.
+This guide uses public endpoints to verify both environments.
+In your copy, set `env.prod.workers_dev` to `true` in both Worker configurations before the first prod deployment.
+
 Wrangler's `main` property identifies a JavaScript entrypoint.
 It does not select a Git branch.
 
@@ -347,7 +351,7 @@ The Wrangler target name determines the actual destination.
 Wrangler does not require these URL variables.
 This repository uses them for deployment links and a nonempty-value check.
 
-Both project configurations use `workers_dev: true` and `preview_urls: false`.
+With the public-demo setting from Step 4, both environments use `workers_dev: true` and `preview_urls: false`.
 The normal Worker addresses remain available when version-specific URLs are disabled.
 
 The workflow passes credentials to Wrangler as follows:
@@ -406,7 +410,7 @@ See [GitHub deployment protection](https://docs.github.com/en/actions/reference/
 9. Commit the changes:
 
    ```sh
-   git add .github/workflows/deploy.yml workers/clock-api/wrangler.jsonc README.md workers/clock-api/README.md
+   git add .github/workflows/deploy.yml workers/*/wrangler.jsonc README.md workers/*/README.md
    git commit -m "Configure personal Cloudflare demo"
    ```
 

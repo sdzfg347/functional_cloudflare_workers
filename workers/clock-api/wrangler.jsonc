@@ -13,6 +13,7 @@
     "prod": {
       "name": "cloudflare-workers-clock-prod",
       "main": "clock.prod.js",
+      "workers_dev": false,
       "vars": { "ENVIRONMENT": "prod", "GIT_SHA": "local" }
     }
   }

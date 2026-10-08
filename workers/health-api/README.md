@@ -30,9 +30,10 @@ The project folder name does not need to match the Cloudflare target name.
 `wrangler.jsonc` defines the mapping.
 
 - [Dev health endpoint](https://cloudflare-workers-poc-dev.n-liu.workers.dev/health)
-- [Prod health endpoint](https://cloudflare-workers-poc-prod.n-liu.workers.dev/health)
+- [Prod health address — disabled for testing](https://cloudflare-workers-poc-prod.n-liu.workers.dev/health)
 
-`workers_dev: true` enables these normal Worker addresses.
+The top-level `workers_dev: true` setting enables the dev address.
+The prod override sets `workers_dev: false` for the current URL test.
 `preview_urls: false` disables version-specific URLs.
 Wrangler deploys by account ID and target name.
 It does not use the public URL to select the target.
@@ -124,6 +125,10 @@ It does not verify Cloudflare permissions.
 
 ## Deploy and verify
 
+Prod currently has no enabled public address.
+For prod, verify the successful Actions run and the target's Cloudflare **Deployments** page.
+Use the HTTP verification steps below for dev, or after you restore the prod address.
+
 1. Open GitHub **Actions → Deploy Worker**.
 2. Select **Run workflow**.
 3. Select a branch for dev, or `main` for prod.
@@ -144,6 +149,7 @@ The same shared GitHub environment can contain deployments for both projects.
 
 ## Correct a failure
 
+- **Prod URL does not respond:** This is expected while `env.prod.workers_dev` is `false`.
 - **Status 503:** Check the environment binding and selected source.
 - **Missing entrypoint:** Supply `--env dev` or `--env prod`.
 - **Empty URL:** Add `WORKER_URL_HEALTH_API` to the selected GitHub environment.
@@ -154,6 +160,8 @@ The same shared GitHub environment can contain deployments for both projects.
 An authorized Cloudflare operator can restore a known working version from the target's **Deployments** page.
 Verify the endpoint after a restore.
 GitHub environment rules do not control dashboard restores.
+
+To restore the prod address, set `env.prod.workers_dev` to `true` and deploy prod after approval.
 
 ## Owner and references
 
