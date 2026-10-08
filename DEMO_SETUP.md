@@ -3,8 +3,8 @@
 Use this guide to reproduce the repository with your own GitHub and Cloudflare accounts.
 This guide contains the complete setup procedure.
 
-The demo has one project, `clock-api`, and two Cloudflare targets.
-Both targets are test Workers.
+The demo has two projects, `clock-api` and `health-api`, and four Cloudflare targets.
+All targets are test Workers.
 The name `prod` identifies the target that requires approval.
 
 ## Before you start
@@ -91,7 +91,7 @@ Replace this placeholder with your GitHub login.
    npm ci
    ```
 
-9. Check both source files:
+9. Check all Worker configurations:
 
    ```sh
    npm run check
@@ -113,10 +113,16 @@ my-cloudflare-workers-demo/
 │       ├── build.yml
 │       └── deploy.yml
 ├── workers/
-│   └── clock-api/
+│   ├── clock-api/
+│   │   ├── README.md
+│   │   ├── clock.dev.js
+│   │   ├── clock.prod.js
+│   │   ├── package.json
+│   │   └── wrangler.jsonc
+│   └── health-api/
 │       ├── README.md
-│       ├── clock.dev.js
-│       ├── clock.prod.js
+│       ├── health.dev.js
+│       ├── health.prod.js
 │       ├── package.json
 │       └── wrangler.jsonc
 ├── .gitignore
@@ -166,6 +172,7 @@ worker:
   default: clock-api
   options:
     - clock-api
+    - health-api
 ```
 
 Keep both `dev` and `prod` environment choices.
@@ -196,12 +203,16 @@ This workflow needs no GitHub personal access token as a repository secret.
 10. Select **Deploy**.
 11. Copy the dev Worker's base URL.
 12. Repeat Steps 7–11 with name `cloudflare-workers-clock-prod`.
+13. Repeat Steps 7–11 with name `cloudflare-workers-poc-dev`.
+14. Repeat Steps 7–11 with name `cloudflare-workers-poc-prod`.
 
 Example URLs:
 
 ```text
 https://cloudflare-workers-clock-dev.YOUR_SUBDOMAIN.workers.dev
 https://cloudflare-workers-clock-prod.YOUR_SUBDOMAIN.workers.dev
+https://cloudflare-workers-poc-dev.YOUR_SUBDOMAIN.workers.dev
+https://cloudflare-workers-poc-prod.YOUR_SUBDOMAIN.workers.dev
 ```
 
 Use the actual URLs from your dashboard.
@@ -210,11 +221,13 @@ Do not use the source repository's account subdomain.
 The existing configuration expects these pairs:
 
 ```text
-env.dev  → clock.dev.js  → cloudflare-workers-clock-dev
-env.prod → clock.prod.js → cloudflare-workers-clock-prod
+clock-api/dev  → clock.dev.js  → cloudflare-workers-clock-dev
+clock-api/prod → clock.prod.js → cloudflare-workers-clock-prod
+health-api/dev  → health.dev.js  → cloudflare-workers-poc-dev
+health-api/prod → health.prod.js → cloudflare-workers-poc-prod
 ```
 
-If you choose different target names, change `env.dev.name` and `env.prod.name` in `workers/clock-api/wrangler.jsonc`.
+If you choose different target names, change `env.dev.name` and `env.prod.name` in the corresponding project's `wrangler.jsonc`.
 Keep the entrypoint names.
 
 Wrangler's `main` property identifies a JavaScript entrypoint.
@@ -229,7 +242,7 @@ This procedure does not use Cloudflare Git Builds.
 
 Each token requires two permission policies:
 
-- **Individual Workers → Editor:** only the matching dev or prod target.
+- **Individual Workers → Editor:** only the matching dev or prod targets.
 - **Workers → Metadata Read-only:** account scope.
 
 The first policy permits deployment to the selected target.
@@ -248,7 +261,7 @@ See [Cloudflare Worker permissions](https://developers.cloudflare.com/workers/au
 3. Enter `dev_workers_deployment_token` as the name.
 4. Select **Start from scratch**.
 5. Select scope **Specified Workers**.
-6. Select only `cloudflare-workers-clock-dev`.
+6. Select `cloudflare-workers-clock-dev` and `cloudflare-workers-poc-dev`.
 7. Select **Individual Workers → Editor**.
 8. Close the policy editor.
 9. Select **Add policy**.
@@ -270,7 +283,7 @@ Keep the value available for Step 6.
 ### Create the prod token
 
 1. Repeat the token procedure with name `prod_workers_deployment_token`.
-2. Select only `cloudflare-workers-clock-prod` for the individual Worker policy.
+2. Select `cloudflare-workers-clock-prod` and `cloudflare-workers-poc-prod` for the individual Worker policy.
 3. Keep the account-level metadata read policy.
 4. Save the separate prod token value.
 5. Record its expiration date.
@@ -311,7 +324,9 @@ The deployment token authorizes changes.
 10. Add secret `CLOUDFLARE_DEPLOYMENT_TOKEN` to `prod`.
 11. Use the prod token value.
 12. Add variable `WORKER_URL_CLOCK_API` to `prod`.
-13. Use your prod Worker's base URL.
+13. Use your prod clock Worker's base URL.
+14. Add variable `WORKER_URL_HEALTH_API` to `dev` with the `cloudflare-workers-poc-dev` base URL.
+15. Add variable `WORKER_URL_HEALTH_API` to `prod` with the `cloudflare-workers-poc-prod` base URL.
 
 The names are identical in both environments.
 The token and URL values differ.
@@ -325,9 +340,15 @@ environment:
 ```
 
 The validation job converts `clock-api` to `WORKER_URL_CLOCK_API`.
+It converts `health-api` to `WORKER_URL_HEALTH_API`.
 The deploy job reads that variable from the selected environment.
 The URL supplies the GitHub deployment link.
 The Wrangler target name determines the actual destination.
+Wrangler does not require these URL variables.
+This repository uses them for deployment links and a nonempty-value check.
+
+Both project configurations use `workers_dev: true` and `preview_urls: false`.
+The normal Worker addresses remain available when version-specific URLs are disabled.
 
 The workflow passes credentials to Wrangler as follows:
 
@@ -448,6 +469,20 @@ The `/time` response also contains `utc`.
 11. Compare `commit` with the workflow commit.
 
 Record both deployment run URLs.
+
+### Repeat for the health project
+
+1. Repeat Step 9 with Worker `health-api` and environment `dev`.
+2. Open the `cloudflare-workers-poc-dev` health endpoint.
+3. Confirm `status: ok`, `service: health-api`, and `entrypoint: health.dev.js`.
+4. Repeat Step 10 with Worker `health-api` and environment `prod`.
+5. Open the `cloudflare-workers-poc-prod` health endpoint.
+6. Confirm `status: ok`, `service: health-api`, and `entrypoint: health.prod.js`.
+7. Compare each response commit with its workflow run.
+8. Confirm that the clock targets retain their previous deployments.
+
+The health Worker is independent.
+Its response does not report the health of the clock Worker.
 
 ## 11. Check feature branches
 
@@ -577,10 +612,10 @@ Store each account ID as an environment secret in that case.
 
 - [ ] The Git remote points to my repository.
 - [ ] The workflow uses my GitHub identity.
-- [ ] Both Cloudflare targets exist.
+- [ ] All four Cloudflare targets exist.
 - [ ] The two tokens have the required policies and separate target lists.
 - [ ] GitHub contains shared `dev` and `prod` environments.
-- [ ] Each environment has its own token and clock URL.
+- [ ] Each environment has its own token and separate clock and health URL variables.
 - [ ] The account ID is a secret.
 - [ ] Build checks pass.
 - [ ] Dev and approved prod deployments succeed.

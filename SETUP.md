@@ -99,10 +99,16 @@ It does not copy secrets, environments, or repository permissions.
 │       ├── build.yml
 │       └── deploy.yml
 ├── workers/
-│   └── clock-api/
+│   ├── clock-api/
+│   │   ├── README.md
+│   │   ├── clock.dev.js
+│   │   ├── clock.prod.js
+│   │   ├── package.json
+│   │   └── wrangler.jsonc
+│   └── health-api/
 │       ├── README.md
-│       ├── clock.dev.js
-│       ├── clock.prod.js
+│       ├── health.dev.js
+│       ├── health.prod.js
 │       ├── package.json
 │       └── wrangler.jsonc
 ├── .gitignore
@@ -187,12 +193,17 @@ It authenticates to Cloudflare with the separate deployment token.
 7. Record both base URLs.
 8. Set the corresponding names in the project's `wrangler.jsonc`.
 
-For the copied clock project, the names are:
+For the copied projects, the target names are:
 
 ```text
 cloudflare-workers-clock-dev
 cloudflare-workers-clock-prod
+cloudflare-workers-poc-dev
+cloudflare-workers-poc-prod
 ```
+
+The `cloudflare-workers-poc-*` targets belong to the `health-api` project.
+Create both environment targets for each project.
 
 Each Wrangler environment must identify its target and source:
 
@@ -346,11 +357,14 @@ env:
 2. Add variable `WORKER_URL_CLOCK_API` with the company's dev clock URL.
 3. Open the `prod` environment.
 4. Add variable `WORKER_URL_CLOCK_API` with the company's prod clock URL.
+5. Add `WORKER_URL_HEALTH_API` to `dev` with the company's health dev URL.
+6. Add `WORKER_URL_HEALTH_API` to `prod` with the company's health prod URL.
 
 Each project requires a separate variable in each environment:
 
 ```text
 clock-api     → WORKER_URL_CLOCK_API
+health-api    → WORKER_URL_HEALTH_API
 fixture-cache → WORKER_URL_FIXTURE_CACHE
 ```
 
@@ -367,6 +381,13 @@ environment:
 The URL supplies the GitHub deployment link.
 The Wrangler target name selects the actual destination.
 The workflow stops before deployment if the URL value is empty.
+Wrangler itself requires no Worker URL as deployment input.
+The presence check is a repository convention.
+
+`preview_urls: false` disables version-specific URLs.
+`workers_dev: true` keeps the normal Worker address enabled.
+Deployment still works by target name if both address types are disabled.
+Verify the deployed version through Cloudflare when no HTTP route is available.
 
 ## 9. Publish the initial configuration
 

@@ -1,7 +1,8 @@
 # Cloudflare Workers deployment POC
 
 This proof of concept (POC) uses GitHub Actions to deploy Cloudflare Workers.
-The repository contains one Worker project, `clock-api`, with separate dev and prod source files.
+The repository contains two independent projects: `clock-api` and `health-api`.
+Each project has separate dev and prod source files.
 
 Pushes and pull requests start build checks.
 An operator starts each deployment manually.
@@ -11,7 +12,8 @@ All projects use the same GitHub environments: `dev` and `prod`.
 
 - [Personal demo setup](DEMO_SETUP.md): reproduce the complete flow with your own accounts.
 - [Company setup](SETUP.md): configure organization access, team approval, and deployment permissions.
-- [Clock Worker instructions](workers/clock-api/README.md): inspect the API, develop locally, and verify a deployment.
+- [Clock Worker instructions](workers/clock-api/README.md): inspect deployment identity and the current UTC time.
+- [Health Worker instructions](workers/health-api/README.md): inspect health status and deployment identity.
 
 ## Folder structure
 
@@ -22,10 +24,16 @@ All projects use the same GitHub environments: `dev` and `prod`.
 │       ├── build.yml
 │       └── deploy.yml
 ├── workers/
-│   └── clock-api/
+│   ├── clock-api/
+│   │   ├── README.md
+│   │   ├── clock.dev.js
+│   │   ├── clock.prod.js
+│   │   ├── package.json
+│   │   └── wrangler.jsonc
+│   └── health-api/
 │       ├── README.md
-│       ├── clock.dev.js
-│       ├── clock.prod.js
+│       ├── health.dev.js
+│       ├── health.prod.js
 │       ├── package.json
 │       └── wrangler.jsonc
 ├── .gitignore
@@ -62,14 +70,17 @@ A new branch does not create a new Cloudflare Worker.
 A **Worker project** is a folder in this repository.
 A **target** is an existing Worker in Cloudflare.
 
-The clock project has these source and target pairs:
+The projects have these source and target pairs:
 
 ```text
 clock-api + dev  → clock.dev.js  → cloudflare-workers-clock-dev
 clock-api + prod → clock.prod.js → cloudflare-workers-clock-prod
+health-api + dev  → health.dev.js  → cloudflare-workers-poc-dev
+health-api + prod → health.prod.js → cloudflare-workers-poc-prod
 ```
 
-[wrangler.jsonc](workers/clock-api/wrangler.jsonc) defines each pair under `env.dev` and `env.prod`.
+Each project's `wrangler.jsonc` defines its pairs under `env.dev` and `env.prod`.
+The health project reuses the original `cloudflare-workers-poc-*` targets.
 
 - `main` identifies the JavaScript entrypoint.
 - `name` identifies the Cloudflare target.
@@ -99,6 +110,7 @@ Each GitHub environment contains:
 
 - Secret `CLOUDFLARE_DEPLOYMENT_TOKEN`: that environment's deployment credential.
 - Variable `WORKER_URL_CLOCK_API`: that environment's public clock URL.
+- Variable `WORKER_URL_HEALTH_API`: that environment's public health URL.
 
 The secret name is the same in both environments.
 The secret values are different.
@@ -122,6 +134,7 @@ Each project has a separate URL variable in each shared GitHub environment.
 
 ```text
 clock-api     → WORKER_URL_CLOCK_API
+health-api    → WORKER_URL_HEALTH_API
 fixture-cache → WORKER_URL_FIXTURE_CACHE
 ```
 
@@ -140,6 +153,46 @@ environment:
 The URL supplies the deployment link in GitHub.
 Wrangler's target name determines the actual deployment destination.
 The workflow stops before deployment if the URL variable is empty.
+This presence check does not request the URL.
+
+This variable is a convention in this repository.
+Wrangler does not require a Worker URL as deployment input.
+The account ID and the selected Wrangler target name identify the deployment destination.
+Our workflow requires the URL for its GitHub link and presence check.
+
+### Normal URLs and version URLs
+
+Both Worker configurations contain these independent settings:
+
+```json
+{
+  "workers_dev": true,
+  "preview_urls": false
+}
+```
+
+`workers_dev: true` enables the normal address for the deployed Worker.
+Cloudflare combines the target name with the account subdomain:
+
+```text
+<worker-name>.<account-subdomain>.workers.dev
+```
+
+`preview_urls: false` disables version-specific URLs and their aliases.
+It does not disable the normal Worker address.
+It also does not prevent Wrangler from deploying code.
+
+The clock dev address remains `cloudflare-workers-clock-dev.n-liu.workers.dev`.
+The health dev address remains `cloudflare-workers-poc-dev.n-liu.workers.dev`.
+The GitHub URL variable does not enable either type of address.
+
+If you disable the normal address, set `workers_dev: false` to keep it disabled during deployment.
+With `workers_dev: true`, Wrangler re-enables the normal address.
+Wrangler can deploy by target name even when both address types are disabled.
+An HTTP endpoint check requires an enabled route or domain.
+Without one, inspect the version in Cloudflare's **Deployments** page.
+
+See [workers.dev routing](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/) and [version URLs](https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/).
 
 ## Access rules
 
@@ -163,7 +216,7 @@ Cloudflare uses two account-owned tokens:
 - `dev_workers_deployment_token`: Individual Workers Editor on the selected dev targets.
 - `prod_workers_deployment_token`: Individual Workers Editor on the selected prod targets.
 
-Each token currently selects only its clock target.
+Each token selects the clock and health targets for its environment.
 Both tokens also have account-level Workers Metadata Read-only.
 Wrangler needs this read permission for the account's `workers.dev` subdomain lookup.
 
@@ -189,7 +242,7 @@ Use Node.js 24.
    npm ci
    ```
 
-3. Check both environment configurations:
+3. Check all Worker configurations:
 
    ```sh
    npm run check
@@ -198,9 +251,9 @@ Use Node.js 24.
 A successful check confirms that Wrangler can package both source files.
 It does not deploy a Worker or verify deployment permissions.
 
-For local server commands, use the [clock Worker instructions](workers/clock-api/README.md).
+For local commands, use the selected project's README.
 
-## Deploy the clock Worker
+## Deploy a Worker
 
 Before a feature-branch deployment, merge or rebase the latest `main` into that branch.
 This gives the branch the current workflow and variable names.
@@ -209,7 +262,7 @@ This gives the branch the current workflow and variable names.
 2. Select **Deploy Worker**.
 3. Select **Run workflow**.
 4. Select the branch.
-5. Select Worker `clock-api`.
+5. Select Worker `clock-api` or `health-api`.
 6. Select environment `dev` or `prod`.
 7. Select **Run workflow** to start the run.
 8. For prod, approve the deployment as the configured reviewer.
@@ -220,11 +273,15 @@ This gives the branch the current workflow and variable names.
 
 Use `main` for prod.
 
-- [Dev health endpoint](https://cloudflare-workers-clock-dev.n-liu.workers.dev/health)
-- [Prod health endpoint](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
+- [Clock dev](https://cloudflare-workers-clock-dev.n-liu.workers.dev/health)
+- [Clock prod](https://cloudflare-workers-clock-prod.n-liu.workers.dev/health)
+- [Health dev](https://cloudflare-workers-poc-dev.n-liu.workers.dev/health)
+- [Health prod](https://cloudflare-workers-poc-prod.n-liu.workers.dev/health)
 
 These URLs return JSON.
 They are public test APIs.
+The independent health Worker also returns `status: ok`.
+It does not check the clock Worker or external systems.
 
 ## Add another Worker
 

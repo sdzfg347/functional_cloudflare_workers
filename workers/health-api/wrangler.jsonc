@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-workers-poc",
+  "compatibility_date": "2026-09-17",
+  "workers_dev": true,
+  "preview_urls": false,
+  "env": {
+    "dev": {
+      "name": "cloudflare-workers-poc-dev",
+      "main": "health.dev.js",
+      "vars": { "ENVIRONMENT": "dev", "GIT_SHA": "local" }
+    },
+    "prod": {
+      "name": "cloudflare-workers-poc-prod",
+      "main": "health.prod.js",
+      "vars": { "ENVIRONMENT": "prod", "GIT_SHA": "local" }
+    }
+  }
+}

@@ -11,6 +11,7 @@ on:
         default: clock-api
         options:
           - clock-api
+          - health-api
       environment:
         description: Target environment
         type: choice

@@ -1,0 +1,11 @@
+{
+  "name": "@poc/health-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --env dev && wrangler deploy --dry-run --env prod"
+  }
+}

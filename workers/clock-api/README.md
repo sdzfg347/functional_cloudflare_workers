@@ -43,6 +43,10 @@ Public health endpoints:
 These endpoints belong to the POC account.
 A copy of this project uses the new account's `workers.dev` subdomain.
 
+The configuration enables the normal address with `workers_dev: true`.
+It disables version-specific URLs with `preview_urls: false`.
+These settings do not disable the normal `/health` or `/time` endpoints.
+
 ## API behavior
 
 - `GET /` and `GET /health` return deployment identity.
