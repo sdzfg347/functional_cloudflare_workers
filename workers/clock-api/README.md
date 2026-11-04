@@ -91,16 +91,12 @@ The Worker returns that value as `commit`.
 ### GitHub deployment configuration
 
 - Repository secret `CLOUDFLARE_ACCOUNT_ID` identifies the Cloudflare account.
-- Environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN` supplies the selected environment's credential.
-- Environment variable `WORKER_URL_CLOCK_API` supplies the selected environment's clock URL.
+- `dev` environment secret `DEV_WORKERS_DEPLOYMENT_TOKEN` supplies the dev credential.
+- `prod` environment secret `PROD_WORKERS_DEPLOYMENT_TOKEN` supplies the prod credential.
 
-Both shared environments contain the same secret and variable names.
-Their token and URL values differ.
-
-The workflow passes the token to Wrangler as `CLOUDFLARE_API_TOKEN`.
-It derives `WORKER_URL_CLOCK_API` from the folder name `clock-api`.
-The URL controls the GitHub deployment link.
+The workflow passes the selected token to Wrangler as `CLOUDFLARE_API_TOKEN`.
 The Wrangler target name controls the deployment destination.
+GitHub stores no URL for this project.
 
 The dev token permits edits to the dev target.
 The prod token permits edits to the prod target.
@@ -182,7 +178,7 @@ Use the HTTP verification steps below for dev, or after you restore the prod add
 - **Prod URL does not respond:** This is expected while `env.prod.workers_dev` is `false`.
 - **Status 503:** Check `ENVIRONMENT` and the selected source file.
 - **Missing entrypoint:** Supply `--env dev` or `--env prod`.
-- **Empty deployment value:** Check the repository secret and the selected environment's secret and URL variable.
+- **Empty deployment value:** Check the repository secret and the selected environment's token secret.
 - **Cloudflare error 10000:** Check the account, token expiry, selected targets, and required read permission.
 - **Wrong response identity:** Check the target URL and workflow commit.
 - **Prod job waits:** Approve the deployment as the configured reviewer.

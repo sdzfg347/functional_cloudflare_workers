@@ -102,63 +102,37 @@ npm run deploy --workspace "workers/$WORKER" -- --env "$DEPLOY_ENVIRONMENT" --va
 The two source files can contain different code.
 A successful dev deployment does not verify the prod source.
 
-## Secrets and URL variables
+## Secrets
 
-The repository secret `CLOUDFLARE_ACCOUNT_ID` identifies the shared Cloudflare account.
+GitHub stores three secrets and no variables:
 
-Each GitHub environment contains:
+- Repository secret `CLOUDFLARE_ACCOUNT_ID`: the shared Cloudflare account.
+- `dev` environment secret `DEV_WORKERS_DEPLOYMENT_TOKEN`: the dev deployment credential.
+- `prod` environment secret `PROD_WORKERS_DEPLOYMENT_TOKEN`: the prod deployment credential.
 
-- Secret `CLOUDFLARE_DEPLOYMENT_TOKEN`: that environment's deployment credential.
-- Variable `WORKER_URL_CLOCK_API`: that environment's public clock URL.
-- Variable `WORKER_URL_HEALTH_API`: that environment's public health URL.
-
-The secret name is the same in both environments.
-The secret values are different.
 GitHub hides saved secret values.
+A job receives environment secrets only from the environment that it selects.
+GitHub releases the prod token only after the prod protection rules pass.
 
 Wrangler requires the runner variable `CLOUDFLARE_API_TOKEN`.
-The workflow supplies it from the renamed GitHub secret:
+The workflow supplies it from the selected environment's secret:
 
 ```yaml
+environment: ${{ inputs.environment }}
 env:
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOYMENT_TOKEN }}
+  CLOUDFLARE_API_TOKEN: ${{ inputs.environment == 'prod' && secrets.PROD_WORKERS_DEPLOYMENT_TOKEN || secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
 ```
 
 These credentials authorize deployment.
 They are not Worker runtime bindings.
 
-### URL selection for multiple Workers
+### Deployment without a Worker URL
 
-Each project has a separate URL variable in each shared GitHub environment.
-
-```text
-clock-api     → WORKER_URL_CLOCK_API
-health-api    → WORKER_URL_HEALTH_API
-fixture-cache → WORKER_URL_FIXTURE_CACHE
-```
-
-The workflow replaces folder-name hyphens with underscores.
-It then changes the name to uppercase and adds `WORKER_URL_`.
-
-For `clock-api`, the `dev` environment contains the dev clock URL.
-The `prod` environment contains the prod clock URL.
-
-```yaml
-environment:
-  name: ${{ inputs.environment }}
-  url: ${{ vars[needs.validate.outputs.worker_url_variable] }}
-```
-
-The URL supplies the deployment link in GitHub.
-Wrangler's target name determines the actual deployment destination.
-The workflow stops before deployment if the URL variable is empty.
-This presence check does not request the URL.
-
-This variable is a convention in this repository.
 Wrangler does not require a Worker URL as deployment input.
 The account ID and the selected Wrangler target name identify the deployment destination.
-Our workflow requires the URL for its GitHub link and presence check.
+GitHub stores no Worker URL and shows no deployment link.
+Each project README lists its endpoints for verification.
 
 ### Normal URLs and version URLs
 
@@ -191,7 +165,6 @@ It also does not prevent Wrangler from deploying code.
 
 The clock dev address remains `cloudflare-workers-clock-dev.n-liu.workers.dev`.
 The health dev address remains `cloudflare-workers-poc-dev.n-liu.workers.dev`.
-The GitHub URL variable does not enable either type of address.
 
 If you disable the normal address, set `workers_dev: false` to keep it disabled during deployment.
 With `workers_dev: true`, Wrangler re-enables the normal address.
@@ -205,7 +178,6 @@ See [workers.dev routing](https://developers.cloudflare.com/workers/configuratio
 
 Both prod Workers still deploy by account ID and Worker name.
 Their normal public addresses remain disabled after deployment.
-The stored GitHub URL variables remain present, but those prod links do not serve the Worker.
 
 For prod verification, inspect the successful Actions run and the target's Cloudflare **Deployments** page.
 Do not expect a prod health response during this test.
@@ -251,8 +223,8 @@ A token name alone does not restrict access.
 Dev branches can execute code with the dev credential.
 That credential must not permit prod changes.
 
-The configured tokens expire at **2026-10-18 23:59 UTC**.
-This is **19 October 2026, 10:59 AEDT**.
+The configured tokens expire at **2027-02-02 12:59 UTC**.
+This is **2 February 2027, 23:59 AEDT**.
 Replace the tokens before this time.
 
 ## Check the project locally
@@ -320,14 +292,12 @@ It does not check the clock Worker or external systems.
 8. Create both targets in Cloudflare.
 9. Add the dev target to the dev token's selected resources.
 10. Add the prod target to the prod token's selected resources.
-11. Add the project's URL variable to the shared `dev` environment.
-12. Add the same variable name, with the prod URL, to the shared `prod` environment.
-13. Check both source files.
-14. Deploy dev from a selected branch.
-15. Verify the dev endpoint.
-16. Deploy prod from `main` after approval.
-17. Verify the prod endpoint.
+11. Check both source files.
+12. Deploy dev from a selected branch.
+13. Verify the dev endpoint.
+14. Deploy prod from `main` after approval.
+15. Verify the prod endpoint.
 
 The existing environments, tokens, and prod approval rules serve the new project.
 GitHub requires a workflow edit for each new dropdown option.
-The workflow selects the new URL variable without a URL-specific workflow edit.
+The new project needs no new GitHub secret or variable.

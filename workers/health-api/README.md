@@ -72,12 +72,12 @@ It is not a health check for other applications.
 - `ENVIRONMENT`: `dev` or `prod`, from Wrangler configuration.
 - `GIT_SHA`: `local` by default, or the selected workflow commit during deployment.
 - `CLOUDFLARE_ACCOUNT_ID`: the shared repository secret.
-- `CLOUDFLARE_DEPLOYMENT_TOKEN`: the credential from the selected GitHub environment.
-- `WORKER_URL_HEALTH_API`: this project's base URL in that GitHub environment.
+- `DEV_WORKERS_DEPLOYMENT_TOKEN`: the dev credential in the `dev` GitHub environment.
+- `PROD_WORKERS_DEPLOYMENT_TOKEN`: the prod credential in the `prod` GitHub environment.
 
-The workflow passes the deployment credential to Wrangler as `CLOUDFLARE_API_TOKEN`.
+The workflow passes the selected credential to Wrangler as `CLOUDFLARE_API_TOKEN`.
 Credentials are not Worker runtime bindings.
-The URL variable supplies the GitHub deployment link.
+GitHub stores no URL for this project.
 
 The shared dev token selects the clock dev and health dev targets.
 The shared prod token selects the clock prod and health prod targets.
@@ -152,7 +152,7 @@ The same shared GitHub environment can contain deployments for both projects.
 - **Prod URL does not respond:** This is expected while `env.prod.workers_dev` is `false`.
 - **Status 503:** Check the environment binding and selected source.
 - **Missing entrypoint:** Supply `--env dev` or `--env prod`.
-- **Empty URL:** Add `WORKER_URL_HEALTH_API` to the selected GitHub environment.
+- **Empty credential:** Add the token secret to the selected GitHub environment.
 - **Cloudflare error 10000:** Check the token's selected health target and metadata read permission.
 - **Wrong service:** Check the URL and selected project.
 - **Prod waits:** Approve the deployment as the configured reviewer.

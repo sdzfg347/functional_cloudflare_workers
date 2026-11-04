@@ -299,7 +299,7 @@ The token name does not control access.
 Do not grant account-wide Workers Editor or Admin to either deployment token.
 The demo needs no Pages, KV, R2, D1, DNS, or zone-route write permission.
 
-## 6. Configure GitHub secrets and variables
+## 6. Configure GitHub secrets
 
 ### Add the account secret
 
@@ -320,36 +320,15 @@ The deployment token authorizes changes.
 2. Select **New environment**.
 3. Enter `dev`.
 4. Select **Configure environment**.
-5. Add environment secret `CLOUDFLARE_DEPLOYMENT_TOKEN`.
+5. Add environment secret `DEV_WORKERS_DEPLOYMENT_TOKEN`.
 6. Use the dev token value from Step 5.
-7. Add environment variable `WORKER_URL_CLOCK_API`.
-8. Use your dev Worker's base URL.
-9. Create a second environment named `prod`.
-10. Add secret `CLOUDFLARE_DEPLOYMENT_TOKEN` to `prod`.
-11. Use the prod token value.
-12. Add variable `WORKER_URL_CLOCK_API` to `prod`.
-13. Use your prod clock Worker's base URL.
-14. Add variable `WORKER_URL_HEALTH_API` to `dev` with the `cloudflare-workers-poc-dev` base URL.
-15. Add variable `WORKER_URL_HEALTH_API` to `prod` with the `cloudflare-workers-poc-prod` base URL.
+7. Create a second environment named `prod`.
+8. Add environment secret `PROD_WORKERS_DEPLOYMENT_TOKEN` to `prod`.
+9. Use the prod token value.
 
-The names are identical in both environments.
-The token and URL values differ.
-
-The workflow selects the environment and URL as follows:
-
-```yaml
-environment:
-  name: ${{ inputs.environment }}
-  url: ${{ vars[needs.validate.outputs.worker_url_variable] }}
-```
-
-The validation job converts `clock-api` to `WORKER_URL_CLOCK_API`.
-It converts `health-api` to `WORKER_URL_HEALTH_API`.
-The deploy job reads that variable from the selected environment.
-The URL supplies the GitHub deployment link.
+Add no variables.
+The workflow needs no Worker URL.
 The Wrangler target name determines the actual destination.
-Wrangler does not require these URL variables.
-This repository uses them for deployment links and a nonempty-value check.
 
 With the public-demo setting from Step 4, both environments use `workers_dev: true` and `preview_urls: false`.
 The normal Worker addresses remain available when version-specific URLs are disabled.
@@ -357,9 +336,10 @@ The normal Worker addresses remain available when version-specific URLs are disa
 The workflow passes credentials to Wrangler as follows:
 
 ```yaml
+environment: ${{ inputs.environment }}
 env:
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOYMENT_TOKEN }}
+  CLOUDFLARE_API_TOKEN: ${{ inputs.environment == 'prod' && secrets.PROD_WORKERS_DEPLOYMENT_TOKEN || secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
 ```
 
 Keep the runner variable name `CLOUDFLARE_API_TOKEN`.
@@ -575,18 +555,15 @@ The external prod environment rules and Cloudflare token scope provide additiona
 6. Create the dev and prod Cloudflare targets.
 7. Add the dev target to the existing dev token.
 8. Add the prod target to the existing prod token.
-9. Add the project's URL variable to both shared GitHub environments.
-10. Use each environment's corresponding target URL.
-11. Repeat the deployment and verification procedures for the new project.
+9. Repeat the deployment and verification procedures for the new project.
 
-Example URL variable: `fixture-cache` becomes `WORKER_URL_FIXTURE_CACHE`.
-The workflow replaces hyphens with underscores, uses uppercase, and adds `WORKER_URL_`.
+The new project needs no new GitHub secret or variable.
 The existing prod approval rules apply to the new Worker.
 
 ## 14. Replace an expiring token
 
 1. Create a replacement token with the same two policies and selected targets.
-2. Replace `CLOUDFLARE_DEPLOYMENT_TOKEN` in the matching GitHub environment.
+2. Replace `DEV_WORKERS_DEPLOYMENT_TOKEN` or `PROD_WORKERS_DEPLOYMENT_TOKEN` in the matching GitHub environment.
 3. Deploy that environment.
 4. Verify the endpoint.
 5. Revoke the old token.
@@ -600,7 +577,7 @@ Create a replacement first to keep the old credential valid during setup.
 - **No Run workflow button:** Publish `deploy.yml` on the default branch.
 - **GitHub skips all deployment jobs:** Check the actor condition and selected branch.
 - **Folder validation fails:** Check the selected folder and its package and Wrangler files.
-- **A deployment value is empty:** Check the secret names and `WORKER_URL_CLOCK_API` in the selected environment.
+- **A deployment value is empty:** Check `CLOUDFLARE_ACCOUNT_ID` and the selected environment's token secret name.
 - **Cloudflare error 10000:** Check the account, target selection, token expiration, and account-level metadata read policy.
 - **Prod does not wait:** Check its required reviewer rule and administrator bypass setting.
 - **Prod cannot get approval:** Disable prevention of self-review for a one-person demo.
@@ -619,7 +596,8 @@ Store each account ID as an environment secret in that case.
 - [ ] All four Cloudflare targets exist.
 - [ ] The two tokens have the required policies and separate target lists.
 - [ ] GitHub contains shared `dev` and `prod` environments.
-- [ ] Each environment has its own token and separate clock and health URL variables.
+- [ ] `dev` has `DEV_WORKERS_DEPLOYMENT_TOKEN` and `prod` has `PROD_WORKERS_DEPLOYMENT_TOKEN`.
+- [ ] Neither environment has variables.
 - [ ] The account ID is a secret.
 - [ ] Build checks pass.
 - [ ] Dev and approved prod deployments succeed.
