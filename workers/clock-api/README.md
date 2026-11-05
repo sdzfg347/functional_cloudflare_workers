@@ -100,7 +100,7 @@ GitHub stores no URL for this project.
 
 The dev token permits edits to the dev target.
 The prod token permits edits to the prod target.
-Both tokens have account-level Workers Metadata Read-only for the `workers.dev` lookup.
+Neither token has an account-level permission.
 
 Prod uses the shared `prod` approval rules and permits the `main` branch only.
 The [repository instructions](../../README.md) describe the current user access rules.
