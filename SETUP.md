@@ -247,17 +247,13 @@ dev_workers_deployment_token  → selected dev targets
 prod_workers_deployment_token → selected prod targets
 ```
 
-Each token requires:
+Each token requires only **Individual Workers → Editor** on its selected targets.
+It can read and edit only those targets.
+It has no account-level permission.
 
-- **Individual Workers → Editor** on its selected targets.
-- **Workers → Metadata Read-only** at account scope.
-
-The account-level read policy permits the `workers.dev` subdomain lookup.
-It also permits metadata and observability access across the account.
-Script-content and edit access remain limited to the selected targets.
-
-The POC verified this permission combination with Wrangler 4.134.0.
-Without account-level metadata read, deployment failed after upload during the subdomain lookup.
+The POC verified this permission with Wrangler 4.157.0.
+With Wrangler 4.134.0, deployment failed after upload during the account `workers.dev` subdomain lookup.
+Keep Wrangler at 4.157.0 or later.
 
 ### Token procedure
 
@@ -269,18 +265,13 @@ Without account-level metadata read, deployment failed after upload during the s
 6. Select only that environment's existing targets.
 7. Select **Individual Workers → Editor**.
 8. Close the policy editor.
-9. Select **Add policy**.
-10. Keep scope **Entire Account**.
-11. Search for `Workers`.
-12. Select only **Workers → Metadata Read-only** in this policy.
-13. Close the policy editor.
-14. Set an expiration date.
-15. Select **Review token** or **Continue to summary**.
-16. Check both policies and the selected targets.
-17. Create the token.
-18. Save its one-time value in the approved secret store.
-19. Record its owner and expiration date.
-20. Repeat the procedure for the other environment.
+9. Set an expiration date.
+10. Select **Review token** or **Continue to summary**.
+11. Check the policy and the selected targets.
+12. Create the token.
+13. Save its one-time value in the approved secret store.
+14. Record its owner and expiration date.
+15. Repeat the procedure for the other environment.
 
 A token name does not enforce resource selection.
 Do not grant account-wide Workers Editor or Admin to a dev token.
@@ -288,9 +279,6 @@ Do not grant account-wide Workers Editor or Admin to a dev token.
 This flow needs no Pages, KV, R2, D1, DNS, or Workers Routes write permission.
 Additional infrastructure operations can require additional permissions.
 Review those operations separately.
-
-If company policy prohibits shared metadata access, use separate Cloudflare accounts for dev and prod.
-In that case, store the matching Account ID as an environment secret.
 
 ## 7. Configure GitHub environments
 
@@ -495,7 +483,7 @@ Do not wait for a normal replacement cycle.
 - **Dev deployment fails branch rules:** Check the dev branch policy and organization workflow condition.
 - **Prod does not require approval:** Check reviewer availability, the GitHub plan, and the prod environment rules.
 - **Cloudflare error 10000:** Check the token, account, target list, expiration, and failing API operation.
-- **Subdomain read fails:** Check the account-level Workers Metadata Read-only policy.
+- **Subdomain read fails after `Uploaded`:** Check that Wrangler is 4.157.0 or later. Earlier versions read the account's `workers.dev` subdomain, which a per-Worker token cannot read. The new version is already live when this step fails.
 - **New target cannot deploy:** Create the target before you add it to the token.
 - **Check name is absent:** Complete an initial build before you configure the required status check.
 

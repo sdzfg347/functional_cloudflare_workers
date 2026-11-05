@@ -31,7 +31,7 @@ A purchased domain is unnecessary.
 - **Optional collaborator:** repository Write access.
 - **GitHub workflow token:** `contents: read`.
 - **Cloudflare setup operator:** access to create Workers and account API tokens.
-- **Cloudflare deployment tokens:** the two policies specified in Step 5.
+- **Cloudflare deployment tokens:** the one policy specified in Step 5.
 
 The Cloudflare account owner can perform the setup.
 Other token creators need API Token Provisioning capabilities and the permissions they grant.
@@ -244,18 +244,16 @@ This procedure does not use Cloudflare Git Builds.
 
 ## 5. Create two deployment tokens
 
-Each token requires two permission policies:
+Each token requires one permission policy:
 
 - **Individual Workers → Editor:** only the matching dev or prod targets.
-- **Workers → Metadata Read-only:** account scope.
 
-The first policy permits deployment to the selected target.
-The second permits Wrangler to read the account's `workers.dev` subdomain.
-It also permits metadata and observability access across the account.
-It does not permit script-content reads or edits on other targets.
+This policy permits deployment to the selected targets.
+It does not permit reads or edits on other targets.
 
-This combination passed deployment checks with Wrangler 4.134.0.
-Individual Worker Editor alone failed the account subdomain read.
+This permission passed deployment checks with Wrangler 4.157.0.
+With Wrangler 4.134.0, deployment failed after upload.
+That version also read the account's `workers.dev` subdomain, which a per-Worker token cannot read.
 See [Cloudflare Worker permissions](https://developers.cloudflare.com/workers/authorization/workers/).
 
 ### Create the dev token
@@ -268,18 +266,13 @@ See [Cloudflare Worker permissions](https://developers.cloudflare.com/workers/au
 6. Select `cloudflare-workers-clock-dev` and `cloudflare-workers-poc-dev`.
 7. Select **Individual Workers → Editor**.
 8. Close the policy editor.
-9. Select **Add policy**.
-10. Keep scope **Entire Account**.
-11. Search for `Workers`.
-12. Select only **Workers → Metadata Read-only** in this second policy.
-13. Close the policy editor.
-14. Set an expiration date.
-15. Record the expiration date.
-16. Select **Review token** or **Continue to summary**.
-17. Confirm the selected target and both permission policies.
-18. Select **Create token**.
-19. Save the token value in a password manager.
-20. Complete the success dialog.
+9. Set an expiration date.
+10. Record the expiration date.
+11. Select **Review token** or **Continue to summary**.
+12. Confirm the selected targets and the permission policy.
+13. Select **Create token**.
+14. Save the token value in a password manager.
+15. Complete the success dialog.
 
 Cloudflare displays the token value once.
 Keep the value available for Step 6.
@@ -288,9 +281,8 @@ Keep the value available for Step 6.
 
 1. Repeat the token procedure with name `prod_workers_deployment_token`.
 2. Select `cloudflare-workers-clock-prod` and `cloudflare-workers-poc-prod` for the individual Worker policy.
-3. Keep the account-level metadata read policy.
-4. Save the separate prod token value.
-5. Record its expiration date.
+3. Save the separate prod token value.
+4. Record its expiration date.
 
 Use different token values for dev and prod.
 The selected resources control token access.
@@ -562,7 +554,7 @@ The existing prod approval rules apply to the new Worker.
 
 ## 14. Replace an expiring token
 
-1. Create a replacement token with the same two policies and selected targets.
+1. Create a replacement token with the same policy and selected targets.
 2. Replace `DEV_WORKERS_DEPLOYMENT_TOKEN` or `PROD_WORKERS_DEPLOYMENT_TOKEN` in the matching GitHub environment.
 3. Deploy that environment.
 4. Verify the endpoint.
@@ -578,7 +570,7 @@ Create a replacement first to keep the old credential valid during setup.
 - **GitHub skips all deployment jobs:** Check the actor condition and selected branch.
 - **Folder validation fails:** Check the selected folder and its package and Wrangler files.
 - **A deployment value is empty:** Check `CLOUDFLARE_ACCOUNT_ID` and the selected environment's token secret name.
-- **Cloudflare error 10000:** Check the account, target selection, token expiration, and account-level metadata read policy.
+- **Cloudflare error 10000:** Check the account, target selection, and token expiration. If it fails after `Uploaded` on the `workers.dev` subdomain, check that Wrangler is 4.157.0 or later.
 - **Prod does not wait:** Check its required reviewer rule and administrator bypass setting.
 - **Prod cannot get approval:** Disable prevention of self-review for a one-person demo.
 - **Wrong endpoint identity:** Compare the target URL, environment, entrypoint, and workflow commit.
@@ -586,8 +578,6 @@ Create a replacement first to keep the old credential valid during setup.
 
 Do not replace a restricted dev token with an account-wide edit token.
 That change would permit prod changes from dev.
-If your policy prohibits shared metadata access, use separate Cloudflare accounts.
-Store each account ID as an environment secret in that case.
 
 ## Completion checks
 

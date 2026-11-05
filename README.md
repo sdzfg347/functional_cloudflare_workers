@@ -213,12 +213,13 @@ Cloudflare uses two account-owned tokens:
 - `prod_workers_deployment_token`: Individual Workers Editor on the selected prod targets.
 
 Each token selects the clock and health targets for its environment.
-Both tokens also have account-level Workers Metadata Read-only.
-Wrangler needs this read permission for the account's `workers.dev` subdomain lookup.
-
-This read permission permits metadata and observability access across the account.
-Script-content and edit access remain limited to each token's selected targets.
+Each token has no other permission.
+It can read and edit only its selected targets.
 A token name alone does not restrict access.
+
+Deployment with these tokens requires Wrangler 4.157.0 or later.
+Wrangler 4.134.0 also read the account's `workers.dev` subdomain after upload.
+A per-Worker token cannot read that account setting, so the deployment failed with error 10000.
 
 Dev branches can execute code with the dev credential.
 That credential must not permit prod changes.

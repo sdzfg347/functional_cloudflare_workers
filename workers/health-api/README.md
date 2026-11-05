@@ -81,7 +81,7 @@ GitHub stores no URL for this project.
 
 The shared dev token selects the clock dev and health dev targets.
 The shared prod token selects the clock prod and health prod targets.
-Both tokens have account-level Workers Metadata Read-only for the subdomain lookup.
+Neither token has an account-level permission.
 
 Prod requires `main` and the shared prod approval rule.
 The [repository instructions](../../README.md) describe the current user access rules.
@@ -153,7 +153,7 @@ The same shared GitHub environment can contain deployments for both projects.
 - **Status 503:** Check the environment binding and selected source.
 - **Missing entrypoint:** Supply `--env dev` or `--env prod`.
 - **Empty credential:** Add the token secret to the selected GitHub environment.
-- **Cloudflare error 10000:** Check the token's selected health target and metadata read permission.
+- **Cloudflare error 10000:** Check the token's selected health target and that Wrangler is 4.157.0 or later.
 - **Wrong service:** Check the URL and selected project.
 - **Prod waits:** Approve the deployment as the configured reviewer.
 
