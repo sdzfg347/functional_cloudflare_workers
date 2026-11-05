@@ -94,7 +94,7 @@ The Worker returns that value as `commit`.
 - `dev` environment secret `DEV_WORKERS_DEPLOYMENT_TOKEN` supplies the dev credential.
 - `prod` environment secret `PROD_WORKERS_DEPLOYMENT_TOKEN` supplies the prod credential.
 
-The workflow passes the selected token to Wrangler as `CLOUDFLARE_API_TOKEN`.
+`cloudflare/wrangler-action` passes the environment's token to Wrangler as `CLOUDFLARE_API_TOKEN`.
 The Wrangler target name controls the deployment destination.
 GitHub stores no URL for this project.
 

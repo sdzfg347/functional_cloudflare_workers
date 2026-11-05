@@ -167,8 +167,9 @@ Keep these existing controls:
 - Worker-folder validation before the deploy job.
 - Checkout of the captured `github.sha`.
 - Node.js 24.
-- `npm ci`.
-- Build checks before deployment.
+- `npm ci`, so the deployment uses the Wrangler version in `package-lock.json`.
+- `cloudflare/wrangler-action` for the deploy step.
+- Build checks on every push.
 - A separate concurrency group for each Worker and environment.
 - Full commit references for external actions.
 - `persist-credentials: false`.
@@ -336,13 +337,23 @@ An environment secret overrides a repository secret with the same name.
 Do not place either deployment token at repository scope.
 GitHub hides saved secret values.
 
-The workflow maps the selected secret to Wrangler's required runner variable:
+Each deploy job passes its environment's secret to `cloudflare/wrangler-action`:
 
 ```yaml
-env:
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ inputs.environment == 'prod' && secrets.PROD_WORKERS_DEPLOYMENT_TOKEN || secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
+deploy-dev:
+  environment: dev
+  steps:
+    - run: npm ci
+    - name: Deploy dev Worker
+      uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+      with:
+        apiToken: ${{ secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: workers/${{ needs.validate.outputs.worker }}
+        command: deploy --env dev --var GIT_SHA:${{ github.sha }} --message "Deployed by ${{ github.actor }} via GitHub Actions run ${{ github.run_number }}"
 ```
+
+The `deploy-prod` job is the same, with `environment: prod`, `PROD_WORKERS_DEPLOYMENT_TOKEN`, and `--env prod`.
 
 A job receives only the secrets of the environment that it selects.
 The dev job therefore cannot read the prod token.

@@ -56,10 +56,13 @@ Operators verify the public endpoints after deployment.
 
 1. The operator selects a Worker project, an environment, and a Git branch.
 2. The validation job checks access rules and the selected folder.
-3. The deploy job selects the shared GitHub environment.
+3. The `deploy-dev` or `deploy-prod` job starts in the matching GitHub environment.
 4. GitHub applies the environment protection rules.
-5. The deploy job installs dependencies and checks both source files.
-6. Wrangler deploys the selected source file to its configured target.
+5. The job installs dependencies from `package-lock.json`.
+6. `cloudflare/wrangler-action` deploys the selected source file to its configured target.
+
+The action uses the Wrangler version that `npm ci` installs (4.157.0).
+The build workflow checks both source files on every push.
 
 The workflow uses the commit captured when the operator starts the run.
 Dev branches share the same dev target.
@@ -95,10 +98,11 @@ GitHub supplies `GITHUB_SHA` for the selected commit.
 The deploy command replaces the default `GIT_SHA` value with that commit:
 
 ```sh
-npm run deploy --workspace "workers/$WORKER" -- --env "$DEPLOY_ENVIRONMENT" --var "GIT_SHA:$GITHUB_SHA"
+wrangler deploy --env dev --var GIT_SHA:<commit> --message "Deployed by <github-user> via GitHub Actions run <run-number>"
 ```
 
-`DEPLOY_ENVIRONMENT` comes from the manual environment input.
+The prod job uses `--env prod`.
+Cloudflare lists the message under the Worker's **Deployments**.
 The two source files can contain different code.
 A successful dev deployment does not verify the prod source.
 
@@ -114,15 +118,25 @@ GitHub hides saved secret values.
 A job receives environment secrets only from the environment that it selects.
 GitHub releases the prod token only after the prod protection rules pass.
 
-Wrangler requires the runner variable `CLOUDFLARE_API_TOKEN`.
-The workflow supplies it from the selected environment's secret:
+Each deploy job passes its environment's token and the account ID to `cloudflare/wrangler-action`:
 
 ```yaml
-environment: ${{ inputs.environment }}
-env:
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ inputs.environment == 'prod' && secrets.PROD_WORKERS_DEPLOYMENT_TOKEN || secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
+deploy-dev:
+  environment: dev
+  steps:
+    - run: npm ci
+    - name: Deploy dev Worker
+      uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+      with:
+        apiToken: ${{ secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: workers/${{ needs.validate.outputs.worker }}
+        command: deploy --env dev --var GIT_SHA:${{ github.sha }} --message "Deployed by ${{ github.actor }} via GitHub Actions run ${{ github.run_number }}"
 ```
+
+The `deploy-prod` job is the same, with `environment: prod`, `PROD_WORKERS_DEPLOYMENT_TOKEN`, and `--env prod`.
+
+The action gives the token to Wrangler as `CLOUDFLARE_API_TOKEN`.
 
 These credentials authorize deployment.
 They are not Worker runtime bindings.
