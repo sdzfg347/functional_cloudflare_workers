@@ -64,7 +64,7 @@ jobs:
   deploy-dev:
     needs: validate
     if: inputs.environment == 'dev' && needs.validate.result == 'success'
-    name: Deploy ${{ needs.validate.outputs.worker }}/dev
+    name: Deploy ${{ inputs.worker }}/dev
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: dev
@@ -91,7 +91,7 @@ jobs:
   deploy-prod:
     needs: validate
     if: inputs.environment == 'prod' && needs.validate.result == 'success'
-    name: Deploy ${{ needs.validate.outputs.worker }}/prod
+    name: Deploy ${{ inputs.worker }}/prod
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: prod
