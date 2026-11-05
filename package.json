@@ -13,6 +13,6 @@
     "check": "npm run check --workspaces"
   },
   "devDependencies": {
-    "wrangler": "^4.134.0"
+    "wrangler": "^4.157.0"
   }
 }
