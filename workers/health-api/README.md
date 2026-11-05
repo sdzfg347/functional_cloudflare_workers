@@ -75,7 +75,7 @@ It is not a health check for other applications.
 - `DEV_WORKERS_DEPLOYMENT_TOKEN`: the dev credential in the `dev` GitHub environment.
 - `PROD_WORKERS_DEPLOYMENT_TOKEN`: the prod credential in the `prod` GitHub environment.
 
-The workflow passes the selected credential to Wrangler as `CLOUDFLARE_API_TOKEN`.
+`cloudflare/wrangler-action` passes the environment's credential to Wrangler as `CLOUDFLARE_API_TOKEN`.
 Credentials are not Worker runtime bindings.
 GitHub stores no URL for this project.
 

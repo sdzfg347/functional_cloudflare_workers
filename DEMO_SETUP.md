@@ -185,7 +185,7 @@ permissions:
   contents: read
 ```
 
-Keep the full commit references for `actions/checkout` and `actions/setup-node`.
+Keep the full commit references for `actions/checkout`, `actions/setup-node`, and `cloudflare/wrangler-action`.
 Keep `persist-credentials: false`.
 This workflow needs no GitHub personal access token as a repository secret.
 
@@ -325,17 +325,25 @@ The Wrangler target name determines the actual destination.
 With the public-demo setting from Step 4, both environments use `workers_dev: true` and `preview_urls: false`.
 The normal Worker addresses remain available when version-specific URLs are disabled.
 
-The workflow passes credentials to Wrangler as follows:
+The workflow passes credentials to `cloudflare/wrangler-action` as follows:
 
 ```yaml
-environment: ${{ inputs.environment }}
-env:
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ inputs.environment == 'prod' && secrets.PROD_WORKERS_DEPLOYMENT_TOKEN || secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
+deploy-dev:
+  environment: dev
+  steps:
+    - run: npm ci
+    - name: Deploy dev Worker
+      uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+      with:
+        apiToken: ${{ secrets.DEV_WORKERS_DEPLOYMENT_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: workers/${{ needs.validate.outputs.worker }}
+        command: deploy --env dev --var GIT_SHA:${{ github.sha }} --message "Deployed by ${{ github.actor }} via GitHub Actions run ${{ github.run_number }}"
 ```
 
-Keep the runner variable name `CLOUDFLARE_API_TOKEN`.
-Wrangler requires that name.
+The `deploy-prod` job is the same, with `environment: prod`, `PROD_WORKERS_DEPLOYMENT_TOKEN`, and `--env prod`.
+
+The action gives the token to Wrangler as `CLOUDFLARE_API_TOKEN`.
 
 GitHub hides saved secret values.
 A secret entry with no visible value is normal.
@@ -373,7 +381,7 @@ See [GitHub deployment protection](https://docs.github.com/en/actions/reference/
 
 1. Open **Settings → Actions → General**.
 2. Enable Actions if necessary.
-3. Permit the pinned `actions/checkout` and `actions/setup-node` actions.
+3. Permit the pinned `actions/checkout`, `actions/setup-node`, and `cloudflare/wrangler-action` actions.
 4. Set default workflow permissions to read-only.
 5. Replace the example user names in the project READMEs with your user names.
 6. Replace the example endpoint URLs in those READMEs with your target URLs.
